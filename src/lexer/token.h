@@ -1,0 +1,81 @@
+#pragma once
+
+#include <string>
+#include <utility>
+#include <vector>
+#include <iostream>
+
+enum class TokenType
+{
+    OBRACKET,
+    CBRACKET,
+    OPAREN,
+    CPAREN,
+    SEMI,
+    NOT,
+    BITCOMPL,
+    DASH,
+    ADD,
+    MUL,
+    DIV,
+    AND,
+    OR,
+    EQ,
+    NOTEQ,
+    LESS,
+    LESSEQ,
+    GREATER,
+    GREATEREQ,
+    TINT,
+    RET,
+    INTV,
+    IDENT,
+    NULLTOK
+};
+
+// A lexer token containing a type and a value
+struct Token
+{
+    TokenType type;
+    std::string value;
+
+    Token()
+        : type(TokenType::NULLTOK), value(std::string())
+    {
+
+    }
+
+    Token(TokenType type)
+        : type(type), value(std::string())
+    {
+
+    }
+
+    Token(TokenType type, const std::string& value)
+        : type(type), value(value)
+    {
+
+    }
+};
+
+// The tokenizer class to manage the token vector, in the parser
+class Tokenizer
+{
+private:
+    std::vector<Token> tokens;
+    size_t pos = 0;
+public:
+    Tokenizer(std::vector<Token>&& tokens)
+        : tokens(std::move(tokens)), pos(0)
+    {   
+
+    }
+
+    Token& operator[](size_t idx) { return tokens.at(idx); }
+    
+    Token& cur() { return tokens.at(pos); };
+    Token& inc() { pos++; return tokens.at(pos - 1); }
+    size_t size() { return tokens.size(); }
+};
+
+std::ostream& operator<<(std::ostream& os, const Token& t);
