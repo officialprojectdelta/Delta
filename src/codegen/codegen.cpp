@@ -73,62 +73,41 @@ void cgExp(Node* node, const std::string& loc, bool reg)
 
         case NodeKind::ADD:
         {
-            // Infinite allocation of registers
-
-            //     add
-            // sub      div
-            // 8, add  40, 5
-            //   4, 3
-
-            // if right is a number (checked before right recursive call)
-            // then right is directly put into the call (if it can be) otherwise 
-            // it is recursivly called
-
-            // register allocator does 2 things
-            // checks for forced usecases (such as division and multiplication) 
-            // if there are 2 registers left, than (still incrementing the rcounter)
-            // pushes the highest used register
-            // and pops it when the register count falls low enough
-
-            // mov %r0, 4
-            // add %r0, 3
-
-            // mov %r1, 4
-            // add %r1, 3
-
-            // sub %r0, %r1
-
-            // Force usecase will change upper registers
-
-            // xor %edx, %edx
-            // mov %eax, 40
-            // mov %r1, 5
-            // idiv %r1
-
-            // add %r0, %r0
-
             // Gen left recursive
-            cgExp(&node->forward[0], loc, true);
+            // Check if number can directly be used in the operation
 
-            // Push onto stack cause im to lazy to figure out register allocation
-            oprintf("    push %r", loc, "x\n");
+            std::string l2 = loc == "a" ? "c" : "a";
 
-            cgExp(&node->forward[1], loc, true);
-
-            // Pop from stack into %ecx
-            oprintf("    pop %rcx\n");
-
-            // Do add instruction on %eax, %ecx
-            if (loc == "a") 
+            char num = 0;
+            if (node->forward[0].kind == NodeKind::NUM) 
             {
-                oprintf("    pop %rcx\n");
-                oprintf("    addl %ecx, %e", loc, "x\n");
+                num = 0;
+
+                cgExp(&node->forward[1], loc, true);
             }
-            else
+            else 
             {
-                oprintf("    pop %rax\n");
-                oprintf("    addl %eax, %e", loc, "x\n");
+                cgExp(&node->forward[0], loc, true);
+
+                if (node->forward[1].kind == NodeKind::NUM) 
+                {
+                    num = 1;
+                }
+                else 
+                {
+                    // Push onto stack cause im to lazy to figure out register allocation
+                    oprintf("    push %r", loc, "x\n");
+                    cgExp(&node->forward[1], loc, true);
+
+                    // Pop from stack into %ecx
+                    oprintf("   pop %r", l2, "x\n");
+                    oprintf("   addl %e", l2, "x, %e", loc, "x\n");
+
+                    return;
+                }
             }
+
+            oprintf("    addl $", node->forward[num].tok.value, ", %e", loc, "x\n");
 
             return;
         }
@@ -137,6 +116,16 @@ void cgExp(Node* node, const std::string& loc, bool reg)
         {
             // Gen left recursive
             cgExp(&node->forward[0], loc, true);
+
+            // Only look if right subnode is a number
+            // Because of operand ordering
+            if (node->forward[1].kind == NodeKind::NUM)
+            {
+                oprintf("    subl $", node->forward[1].tok.value, ", %e", loc, "x\n");
+                return;
+            }
+
+            // Else run like normal
 
             // Push onto stack cause im to lazy to figure out register allocation
             oprintf("    push %r", loc, "x\n");
@@ -161,25 +150,40 @@ void cgExp(Node* node, const std::string& loc, bool reg)
         case NodeKind::MUL:
         {
             // Gen left recursive
-            cgExp(&node->forward[0], loc, true);
+            // Check if number can directly be used in the operation
 
-            // Push onto stack cause im to lazy to figure out register allocation
-            oprintf("    push %r", loc, "x\n");
+            std::string l2 = loc == "a" ? "c" : "a";
 
-            cgExp(&node->forward[1], loc, true);
-
-            // VERY HACKY CODE
-            // Pop from stack into %ecx
-            if (loc == "a") 
+            char num = 0;
+            if (node->forward[0].kind == NodeKind::NUM) 
             {
-                oprintf("    pop %rcx\n");
-                oprintf("    imul %ecx, %e", loc, "x\n");
+                num = 0;
+
+                cgExp(&node->forward[1], loc, true);
             }
-            else
+            else 
             {
-                oprintf("    pop %rax\n");
-                oprintf("    imul %eax, %e", loc, "x\n");
-            }            
+                cgExp(&node->forward[0], loc, true);
+
+                if (node->forward[1].kind == NodeKind::NUM) 
+                {
+                    num = 1;
+                }
+                else 
+                {
+                    // Push onto stack cause im to lazy to figure out register allocation
+                    oprintf("    push %r", loc, "x\n");
+                    cgExp(&node->forward[1], loc, true);
+
+                    // Pop from stack into %ecx
+                    oprintf("   pop %r", l2, "x\n");
+                    oprintf("   imul %e", l2, "x, %e", loc, "x\n");
+
+                    return;
+                }
+            }
+
+            oprintf("    imul $", node->forward[num].tok.value, ", %e", loc, "x\n");
 
             return;
         }
@@ -203,77 +207,153 @@ void cgExp(Node* node, const std::string& loc, bool reg)
             // Do division instruction on %eax, %ecx
             oprintf("    idiv %ecx\n");
 
-            return;
+            if (loc != "a") oprintf("   movl %eax, %e", loc, "x\n");
+
+            return;  
         }
 
         case NodeKind::EQ:
         {
             // Gen left recursive
-            cgExp(&node->forward[0], loc, true);
+            // Check if number can directly be used in the operation
 
-            // Push onto stack cause im to lazy to figure out register allocation
-            oprintf("    push %r", loc, "x\n");
-
-            cgExp(&node->forward[1], loc, true);
-
-            // VERY HACKY CODE
-            // Pop from stack into %ecx
             std::string l2 = loc == "a" ? "c" : "a";
- 
-            oprintf("    pop %r", l2, "x\n");
-            
-            // Equality follows the communitive property
-            oprintf("    cmpl %eax, %ecx\n");
-            oprintf("    mov $0, %eax\n");
+
+            char num = 0;
+            if (node->forward[0].kind == NodeKind::NUM) 
+            {
+                num = 0;
+
+                cgExp(&node->forward[1], loc, true);
+            }
+            else 
+            {
+                cgExp(&node->forward[0], loc, true);
+
+                if (node->forward[1].kind == NodeKind::NUM) 
+                {
+                    num = 1;
+                }
+                else 
+                {
+                    // Push onto stack cause im to lazy to figure out register allocation
+                    oprintf("    push %r", loc, "x\n");
+                    cgExp(&node->forward[1], loc, true);
+
+                    // Pop from stack into %ecx
+                    oprintf("    pop %r", l2, "x\n");
+                    oprintf("    cmpl %eax, %ecx\n");
+                    oprintf("    mov $0, %e", loc, "x\n");
+                    oprintf("    sete %", loc, "l\n");
+
+
+                    return;
+                }
+            }
+
+            oprintf("    cmpl $", node->forward[num].tok.value, ", %e", loc, "x\n");
+            oprintf("    mov $0, %e", loc, "x\n");
             oprintf("    sete %", loc, "l\n");
 
-            return; 
+            return;
         }
 
         case NodeKind::NOTEQ:
         {
             // Gen left recursive
-            cgExp(&node->forward[0], loc, true);
+            // Check if number can directly be used in the operation
 
-            // Push onto stack cause im to lazy to figure out register allocation
-            oprintf("    push %r", loc, "x\n");
-
-            cgExp(&node->forward[1], loc, true);
-
-            // VERY HACKY CODE
-            // Pop from stack into %ecx
             std::string l2 = loc == "a" ? "c" : "a";
- 
-            oprintf("    pop %r", l2, "x\n");
-            
-            // Equality follows the communitive property
-            oprintf("    cmpl %eax, %ecx\n");
+
+            char num = 0;
+            if (node->forward[0].kind == NodeKind::NUM) 
+            {
+                num = 0;
+
+                cgExp(&node->forward[1], loc, true);
+            }
+            else 
+            {
+                cgExp(&node->forward[0], loc, true);
+
+                if (node->forward[1].kind == NodeKind::NUM) 
+                {
+                    num = 1;
+                }
+                else 
+                {
+                    // Push onto stack cause im to lazy to figure out register allocation
+                    oprintf("    push %r", loc, "x\n");
+                    cgExp(&node->forward[1], loc, true);
+
+                    // Pop from stack into %ecx
+                    oprintf("    pop %r", l2, "x\n");
+                    oprintf("    cmpl %eax, %ecx\n");
+                    oprintf("    mov $0, %e", loc, "x\n");
+                    oprintf("    setne %", loc, "l\n");
+
+
+                    return;
+                }
+            }
+
+            oprintf("    cmpl $", node->forward[num].tok.value, ", %e", loc, "x\n");
             oprintf("    mov $0, %e", loc, "x\n");
             oprintf("    setne %", loc, "l\n");
 
-            return; 
+            return;
         }
 
         case NodeKind::LESS:
         {
             // Gen left recursive
-            cgExp(&node->forward[0], loc, true);
+            // Check if number can directly be used in the operation
 
-            // Push onto stack cause im to lazy to figure out register allocation
-            oprintf("    push %r", loc, "x\n");
-
-            cgExp(&node->forward[1], loc, true);
-
-            // VERY HACKY CODE
-            // Pop from stack into %ecx
             std::string l2 = loc == "a" ? "c" : "a";
- 
-            oprintf("    pop %r", l2, "x\n");
-            
-            // Comparison doesn't follow the communitive property
-            oprintf("    cmpl %e", loc, "x, %e", l2, "x\n");
+
+            char num = 0;
+            if (node->forward[0].kind == NodeKind::NUM) 
+            {
+                num = 0;
+
+                cgExp(&node->forward[1], loc, true);
+            }
+            else 
+            {
+                cgExp(&node->forward[0], loc, true);
+
+                if (node->forward[1].kind == NodeKind::NUM) 
+                {
+                    num = 1;
+                }
+                else 
+                {
+                    // Push onto stack cause im to lazy to figure out register allocation
+                    oprintf("    push %r", loc, "x\n");
+                    cgExp(&node->forward[1], loc, true);
+
+                    // Pop from stack into %ecx
+                    oprintf("    pop %r", l2, "x\n");
+                    oprintf("    cmpl %e", loc, "x, %e", l2, "x\n");
+                    oprintf("    mov $0, %e", loc, "x\n");
+                    oprintf("    setl %", loc, "l\n");
+
+                    return;
+                }
+            }
+
+            if (num) 
+            {
+                oprintf("    cmpl %e", loc, "x, $", node->forward[num].tok.value, "\n");
+            }
+            else 
+            {
+                oprintf("    cmpl $", node->forward[num].tok.value, ", %e", loc, "x\n");
+            }
+
             oprintf("    mov $0, %e", loc, "x\n");
-            oprintf("    setl %", loc, "l\n");
+            // Hack because of stupid operand order
+            oprintf("    setg %", loc, "l\n");
 
             return; 
         }
@@ -281,23 +361,53 @@ void cgExp(Node* node, const std::string& loc, bool reg)
         case NodeKind::LESSEQ:
         {
             // Gen left recursive
-            cgExp(&node->forward[0], loc, true);
+            // Check if number can directly be used in the operation
 
-            // Push onto stack cause im to lazy to figure out register allocation
-            oprintf("    push %r", loc, "x\n");
-
-            cgExp(&node->forward[1], loc, true);
-
-            // VERY HACKY CODE
-            // Pop from stack into %ecx
             std::string l2 = loc == "a" ? "c" : "a";
- 
-            oprintf("    pop %r", l2, "x\n");
-            
-            // Comparison doesn't follow the communitive property
-            oprintf("    cmpl %e", loc, "x, %e", l2, "x\n");
+
+            char num = 0;
+            if (node->forward[0].kind == NodeKind::NUM) 
+            {
+                num = 0;
+
+                cgExp(&node->forward[1], loc, true);
+            }
+            else 
+            {
+                cgExp(&node->forward[0], loc, true);
+
+                if (node->forward[1].kind == NodeKind::NUM) 
+                {
+                    num = 1;
+                }
+                else 
+                {
+                    // Push onto stack cause im to lazy to figure out register allocation
+                    oprintf("    push %r", loc, "x\n");
+                    cgExp(&node->forward[1], loc, true);
+
+                    // Pop from stack into %ecx
+                    oprintf("    pop %r", l2, "x\n");
+                    oprintf("    cmpl %e", loc, "x, %e", l2, "x\n");
+                    oprintf("    mov $0, %e", loc, "x\n");
+                    oprintf("    setle %", loc, "l\n");
+
+                    return;
+                }
+            }
+
+            if (num) 
+            {
+                oprintf("    cmpl %e", loc, "x, $", node->forward[num].tok.value, "\n");
+            }
+            else 
+            {
+                oprintf("    cmpl $", node->forward[num].tok.value, ", %e", loc, "x\n");
+            }
+
             oprintf("    mov $0, %e", loc, "x\n");
-            oprintf("    setle %", loc, "l\n");
+            // Hack because of stupid operand order
+            oprintf("    setge %", loc, "l\n");
 
             return; 
         }
@@ -305,23 +415,53 @@ void cgExp(Node* node, const std::string& loc, bool reg)
         case NodeKind::GREATER:
         {
             // Gen left recursive
-            cgExp(&node->forward[0], loc, true);
+            // Check if number can directly be used in the operation
 
-            // Push onto stack cause im to lazy to figure out register allocation
-            oprintf("    push %r", loc, "x\n");
-
-            cgExp(&node->forward[1], loc, true);
-
-            // VERY HACKY CODE
-            // Pop from stack into %ecx
             std::string l2 = loc == "a" ? "c" : "a";
- 
-            oprintf("    pop %r", l2, "x\n");
-            
-            // Comparison doesn't follow the communitive property
-            oprintf("    cmpl %e", loc, "x, %e", l2, "x\n");
+
+            char num = 0;
+            if (node->forward[0].kind == NodeKind::NUM) 
+            {
+                num = 0;
+
+                cgExp(&node->forward[1], loc, true);
+            }
+            else 
+            {
+                cgExp(&node->forward[0], loc, true);
+
+                if (node->forward[1].kind == NodeKind::NUM) 
+                {
+                    num = 1;
+                }
+                else 
+                {
+                    // Push onto stack cause im to lazy to figure out register allocation
+                    oprintf("    push %r", loc, "x\n");
+                    cgExp(&node->forward[1], loc, true);
+
+                    // Pop from stack into %ecx
+                    oprintf("    pop %r", l2, "x\n");
+                    oprintf("    cmpl %e", loc, "x, %e", l2, "x\n");
+                    oprintf("    mov $0, %e", loc, "x\n");
+                    oprintf("    setg %", loc, "l\n");
+
+                    return;
+                }
+            }
+
+            if (num) 
+            {
+                oprintf("    cmpl %e", loc, "x, $", node->forward[num].tok.value, "\n");
+            }
+            else 
+            {
+                oprintf("    cmpl $", node->forward[num].tok.value, ", %e", loc, "x\n");
+            }
+
             oprintf("    mov $0, %e", loc, "x\n");
-            oprintf("    setg %", loc, "l\n");
+            // Hack because of stupid operand order
+            oprintf("    setl %", loc, "l\n");
 
             return; 
         }
@@ -329,25 +469,55 @@ void cgExp(Node* node, const std::string& loc, bool reg)
         case NodeKind::GREATEREQ:
         {
             // Gen left recursive
-            cgExp(&node->forward[0], loc, true);
+            // Check if number can directly be used in the operation
 
-            // Push onto stack cause im to lazy to figure out register allocation
-            oprintf("    push %r", loc, "x\n");
-
-            cgExp(&node->forward[1], loc, true);
-
-            // VERY HACKY CODE
-            // Pop from stack into %ecx
             std::string l2 = loc == "a" ? "c" : "a";
- 
-            oprintf("    pop %r", l2, "x\n");
-            
-            // Comparison doesn't follow the communitive property
-            oprintf("    cmpl %e", loc, "x, %e", l2, "x\n");
-            oprintf("    mov $0, %e", loc, "x\n");
-            oprintf("    setge %", loc, "l\n");
 
-            return; 
+            char num = 0;
+            if (node->forward[0].kind == NodeKind::NUM) 
+            {
+                num = 0;
+
+                cgExp(&node->forward[1], loc, true);
+            }
+            else 
+            {
+                cgExp(&node->forward[0], loc, true);
+
+                if (node->forward[1].kind == NodeKind::NUM) 
+                {
+                    num = 1;
+                }
+                else 
+                {
+                    // Push onto stack cause im to lazy to figure out register allocation
+                    oprintf("    push %r", loc, "x\n");
+                    cgExp(&node->forward[1], loc, true);
+
+                    // Pop from stack into %ecx
+                    oprintf("    pop %r", l2, "x\n");
+                    oprintf("    cmpl %e", loc, "x, %e", l2, "x\n");
+                    oprintf("    mov $0, %e", loc, "x\n");
+                    oprintf("    setge %", loc, "l\n");
+
+                    return;
+                }
+            }
+
+            if (num) 
+            {
+                oprintf("    cmpl %e", loc, "x, $", node->forward[num].tok.value, "\n");
+            }
+            else 
+            {
+                oprintf("    cmpl $", node->forward[num].tok.value, ", %e", loc, "x\n");
+            }
+
+            oprintf("    mov $0, %e", loc, "x\n");
+            // Hack because of stupid operand order
+            oprintf("    setle %", loc, "l\n");
+
+            return;  
         }
 
         case NodeKind::OR:
@@ -367,7 +537,9 @@ void cgExp(Node* node, const std::string& loc, bool reg)
             // C2 lable (evaluate both exprs)
             oprintf("    .LC", c2, ":\n");
 
-            // Right recurse if the top condition doesn't evaluate 
+            // Check other side of operation if first side doesn't provide enough info
+
+            // Check if right node is a number 
             cgExp(&node->forward[1], loc, true);
             
             // Set value

@@ -13,9 +13,9 @@ int main(int argc, char** argv)
     try
     {
         auto tokens = scan(readFile(argv[1]));
-        std::cout << "here" << std::endl;
 
         Node* node = parse(tokens);
+        
         writeFile(argv[2], codegen(node));
     }
     catch (compiler_error& e)

@@ -160,7 +160,6 @@ Node* parseAtom(Node* current, Tokenizer& tokens)
         else 
         {
             tokens.inc();
-            std::cout << "Atomret" << std::endl;
             return current;
         }
     }

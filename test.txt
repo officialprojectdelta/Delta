@@ -1,4 +1,4 @@
 int test()
 {
-    return -3 && 1;
+    return 9 / 3;
 }

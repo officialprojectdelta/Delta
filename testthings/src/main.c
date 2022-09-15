@@ -1,6 +1,8 @@
 #include <stdio.h>
 
+int test(void);
+
 int main(void)
 {
-    printf("%d", 0 || -3);
+    printf("%d", test());
 }
