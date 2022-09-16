@@ -598,9 +598,25 @@ void cgExp(Node* node, const std::string& loc, bool reg)
             // Make sure lhs is assignable and exists
             if (!varMap.contains(node->forward[0].tok.value)) throw compiler_error("Expr is not assignable");
 
-            cgExp(&node->forward[1], loc, true);
+            // What the variable is being assigned to
+            std::stringstream firstHalf;
 
-            oprintf("    movl %e", loc, "x, -", varMap[node->forward[0].tok.value], "(%rbp)\n");
+            if (node->forward[1].kind == NodeKind::NUM) 
+            {
+                firstHalf << "$" << node->forward[1].tok.value;
+            }
+            else if (node->forward[1].kind == NodeKind::VAR)
+            {
+                if (!varMap.contains(node->forward[1].tok.value)) throw compiler_error("Variable \'%s\' has not been declared", node->forward[1].tok.value.c_str());
+                firstHalf << "-" << varMap[node->forward[1].tok.value] << "(%rbp)";
+            }
+            else 
+            {
+                cgExp(&node->forward[1], loc, true);
+                firstHalf << "%e" << loc << "x";
+            }
+
+            oprintf("    movl ", firstHalf.str(), ", -", varMap[node->forward[0].tok.value], "(%rbp)\n");
 
             return;
         }
@@ -633,9 +649,25 @@ void cgStmtExp(Node* node)
     }
     else if (node->kind == NodeKind::DECL)
     {
-        // Using registers, then moving to a variable
-        cgExp(&node->forward[0], "a", 1);
-        oprintf("    movl %eax, -", varMap[node->tok.value], "(%rbp)\n");
+        // What the variable is being assigned to
+        std::stringstream firstHalf;
+
+        if (node->forward[0].kind == NodeKind::NUM) 
+        {
+            firstHalf << "$" << node->forward[0].tok.value;
+        }
+        else if (node->forward[0].kind == NodeKind::VAR)
+        {
+            if (!varMap.contains(node->forward[0].tok.value)) throw compiler_error("Variable %s has not been declared", node->forward[0].tok.value.c_str());
+            firstHalf << "-" << varMap[node->forward[0].tok.value] << "(%rbp)";
+        }
+        else 
+        {
+            cgExp(&node->forward[0], "a", true);
+            firstHalf << "%eax";
+        }
+
+        oprintf("    movl ", firstHalf.str(), ", -", varMap[node->tok.value], "(%rbp)\n");
     }
     else 
     {   
