@@ -79,7 +79,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
         case NodeKind::NUM:
         {
             // Memory support is later, as well as default numbers (putting them directly into instructions)
-            oprintf("    mov $", node->tok.value, ", %e", loc, "x\n");
+            oprintf("    movl $", node->tok.value, ", %e", loc, "x\n");
 
             return;
         }
@@ -91,11 +91,16 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
             std::string l2 = loc == "a" ? "c" : "a";
 
-            char num = 0;
+            std::stringstream op;
+
             if (node->forward[0].kind == NodeKind::NUM) 
             {
-                num = 0;
-
+                op << "$" << node->forward[0].tok.value;
+                cgExp(&node->forward[1], loc, true, symtable);
+            }
+            else if (node->forward[0].kind == NodeKind::VAR)
+            {
+                op << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -104,7 +109,11 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
                 if (node->forward[1].kind == NodeKind::NUM) 
                 {
-                    num = 1;
+                    op << "$" << node->forward[1].tok.value;
+                }
+                else if (node->forward[1].kind == NodeKind::VAR)
+                {
+                    op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
                 }
                 else 
                 {
@@ -120,7 +129,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 }
             }
 
-            oprintf("    addl $", node->forward[num].tok.value, ", %e", loc, "x\n");
+            oprintf("    addl ", op.str(), ", %e", loc, "x\n");
 
             return;
         }
@@ -130,11 +139,16 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             // Gen left recursive
             cgExp(&node->forward[0], loc, true, symtable);
 
-            // Only look if right subnode is a number
+            // Only look if right subnode is a number/var
             // Because of operand ordering
             if (node->forward[1].kind == NodeKind::NUM)
             {
                 oprintf("    subl $", node->forward[1].tok.value, ", %e", loc, "x\n");
+                return;
+            }
+            else if (node->forward[1].kind == NodeKind::VAR)
+            {
+                oprintf("    subl -", symtable.locals[node->forward[1].tok.value].loc, "(%rbp), %e", loc, "x\n");
                 return;
             }
 
@@ -167,11 +181,16 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
             std::string l2 = loc == "a" ? "c" : "a";
 
-            char num = 0;
+            std::stringstream op;
+
             if (node->forward[0].kind == NodeKind::NUM) 
             {
-                num = 0;
-
+                op << "$" << node->forward[0].tok.value;
+                cgExp(&node->forward[1], loc, true, symtable);
+            }
+            else if (node->forward[0].kind == NodeKind::VAR)
+            {
+                op << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -180,7 +199,11 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
                 if (node->forward[1].kind == NodeKind::NUM) 
                 {
-                    num = 1;
+                    op << "$" << node->forward[1].tok.value;
+                }
+                else if (node->forward[1].kind == NodeKind::VAR)
+                {
+                    op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
                 }
                 else 
                 {
@@ -189,14 +212,14 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                     cgExp(&node->forward[1], loc, true, symtable);
 
                     // Pop from stack into %ecx
-                    oprintf("    pop %r", l2, "x\n");
-                    oprintf("    imul %e", l2, "x, %e", loc, "x\n");
+                    oprintf("   pop %r", l2, "x\n");
+                    oprintf("   imul %e", l2, "x, %e", loc, "x\n");
 
                     return;
                 }
             }
 
-            oprintf("    imul $", node->forward[num].tok.value, ", %e", loc, "x\n");
+            oprintf("    imul ", op.str(), ", %e", loc, "x\n");
 
             return;
         }
@@ -206,19 +229,30 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             // Gen left recursive
             cgExp(&node->forward[0], loc, true, symtable);
 
-            // Push onto stack cause im to lazy to figure out register allocation
-            oprintf("    push %r", loc, "x\n");
+            std::stringstream op;
 
-            cgExp(&node->forward[1], "c", true, symtable);
+            if (node->forward[1].kind == NodeKind::VAR)
+            {
+                op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
+            }
+            else
+            {
+                // Push onto stack cause im to lazy to figure out register allocation
+                oprintf("    push %r", loc, "x\n");
 
-            // Pop from stack into %eax
-            oprintf("    pop %rax\n");
+                cgExp(&node->forward[1], "c", true, symtable);
+
+                // Pop from stack into %eax
+                oprintf("    pop %rax\n");
+
+                op << "%ecx";
+            }
             
             // Sign extend %eax into %edx
             oprintf("    cdq\n");
 
             // Do division instruction on %eax, %ecx
-            oprintf("    idiv %ecx\n");
+            oprintf("    idivl ", op.str(), "\n");
 
             if (loc != "a") oprintf("   movl %eax, %e", loc, "x\n");
 
@@ -232,11 +266,16 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
             std::string l2 = loc == "a" ? "c" : "a";
 
-            char num = 0;
+            std::stringstream op;
+
             if (node->forward[0].kind == NodeKind::NUM) 
             {
-                num = 0;
-
+                op << "$" << node->forward[0].tok.value;
+                cgExp(&node->forward[1], loc, true, symtable);
+            }
+            else if (node->forward[0].kind == NodeKind::VAR)
+            {
+                op << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -245,7 +284,11 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
                 if (node->forward[1].kind == NodeKind::NUM) 
                 {
-                    num = 1;
+                    op << "$" << node->forward[1].tok.value;
+                }
+                else if (node->forward[1].kind == NodeKind::VAR)
+                {
+                    op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
                 }
                 else 
                 {
@@ -258,13 +301,11 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                     oprintf("    cmpl %eax, %ecx\n");
                     oprintf("    mov $0, %e", loc, "x\n");
                     oprintf("    sete %", loc, "l\n");
-
-
                     return;
                 }
             }
 
-            oprintf("    cmpl $", node->forward[num].tok.value, ", %e", loc, "x\n");
+            oprintf("    cmpl ", op.str(), ", %e", loc, "x\n");
             oprintf("    mov $0, %e", loc, "x\n");
             oprintf("    sete %", loc, "l\n");
 
@@ -278,11 +319,16 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
             std::string l2 = loc == "a" ? "c" : "a";
 
-            char num = 0;
+            std::stringstream op;
+
             if (node->forward[0].kind == NodeKind::NUM) 
             {
-                num = 0;
-
+                op << "$" << node->forward[0].tok.value;
+                cgExp(&node->forward[1], loc, true, symtable);
+            }
+            else if (node->forward[0].kind == NodeKind::VAR)
+            {
+                op << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -291,7 +337,11 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
                 if (node->forward[1].kind == NodeKind::NUM) 
                 {
-                    num = 1;
+                    op << "$" << node->forward[1].tok.value;
+                }
+                else if (node->forward[1].kind == NodeKind::VAR)
+                {
+                    op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
                 }
                 else 
                 {
@@ -304,13 +354,11 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                     oprintf("    cmpl %eax, %ecx\n");
                     oprintf("    mov $0, %e", loc, "x\n");
                     oprintf("    setne %", loc, "l\n");
-
-
                     return;
                 }
             }
 
-            oprintf("    cmpl $", node->forward[num].tok.value, ", %e", loc, "x\n");
+            oprintf("    cmpl ", op.str(), ", %e", loc, "x\n");
             oprintf("    mov $0, %e", loc, "x\n");
             oprintf("    setne %", loc, "l\n");
 
@@ -324,11 +372,16 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
             std::string l2 = loc == "a" ? "c" : "a";
 
-            char num = 0;
+            std::stringstream op;
+            bool num = 0;
             if (node->forward[0].kind == NodeKind::NUM) 
             {
-                num = 0;
-
+                op << "$" << node->forward[0].tok.value;
+                cgExp(&node->forward[1], loc, true, symtable);
+            }
+            else if (node->forward[0].kind == NodeKind::VAR)
+            {
+                op << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -337,6 +390,12 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
                 if (node->forward[1].kind == NodeKind::NUM) 
                 {
+                    op << "$" << node->forward[1].tok.value;
+                    num = 1;
+                }
+                else if (node->forward[1].kind == NodeKind::VAR)
+                {
+                    op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
                     num = 1;
                 }
                 else 
@@ -350,23 +409,22 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                     oprintf("    cmpl %e", loc, "x, %e", l2, "x\n");
                     oprintf("    mov $0, %e", loc, "x\n");
                     oprintf("    setl %", loc, "l\n");
-
                     return;
                 }
             }
+ 
+            oprintf("    cmpl ", op.str(), ", %e", loc, "x\n");
+            oprintf("    mov $0, %e", loc, "x\n");
 
+            // Hack because of stupid operand order
             if (num) 
             {
-                oprintf("    cmpl %e", loc, "x, $", node->forward[num].tok.value, "\n");
+                oprintf("    setl %", loc, "l\n");
             }
-            else 
+            else
             {
-                oprintf("    cmpl $", node->forward[num].tok.value, ", %e", loc, "x\n");
+                oprintf("    setg %", loc, "l\n");
             }
-
-            oprintf("    mov $0, %e", loc, "x\n");
-            // Hack because of stupid operand order
-            oprintf("    setg %", loc, "l\n");
 
             return; 
         }
@@ -378,11 +436,16 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
             std::string l2 = loc == "a" ? "c" : "a";
 
-            char num = 0;
+            std::stringstream op;
+            bool num = 0;
             if (node->forward[0].kind == NodeKind::NUM) 
             {
-                num = 0;
-
+                op << "$" << node->forward[0].tok.value;
+                cgExp(&node->forward[1], loc, true, symtable);
+            }
+            else if (node->forward[0].kind == NodeKind::VAR)
+            {
+                op << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -391,6 +454,12 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
                 if (node->forward[1].kind == NodeKind::NUM) 
                 {
+                    op << "$" << node->forward[1].tok.value;
+                    num = 1;
+                }
+                else if (node->forward[1].kind == NodeKind::VAR)
+                {
+                    op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
                     num = 1;
                 }
                 else 
@@ -404,23 +473,22 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                     oprintf("    cmpl %e", loc, "x, %e", l2, "x\n");
                     oprintf("    mov $0, %e", loc, "x\n");
                     oprintf("    setle %", loc, "l\n");
-
                     return;
                 }
             }
+ 
+            oprintf("    cmpl ", op.str(), ", %e", loc, "x\n");
+            oprintf("    mov $0, %e", loc, "x\n");
 
+            // Hack because of stupid operand order
             if (num) 
             {
-                oprintf("    cmpl %e", loc, "x, $", node->forward[num].tok.value, "\n");
+                oprintf("    setle %", loc, "l\n");
             }
-            else 
+            else
             {
-                oprintf("    cmpl $", node->forward[num].tok.value, ", %e", loc, "x\n");
+                oprintf("    setge %", loc, "l\n");
             }
-
-            oprintf("    mov $0, %e", loc, "x\n");
-            // Hack because of stupid operand order
-            oprintf("    setge %", loc, "l\n");
 
             return; 
         }
@@ -432,11 +500,16 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
             std::string l2 = loc == "a" ? "c" : "a";
 
-            char num = 0;
+            std::stringstream op;
+            bool num = 0;
             if (node->forward[0].kind == NodeKind::NUM) 
             {
-                num = 0;
-
+                op << "$" << node->forward[0].tok.value;
+                cgExp(&node->forward[1], loc, true, symtable);
+            }
+            else if (node->forward[0].kind == NodeKind::VAR)
+            {
+                op << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -445,6 +518,12 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
                 if (node->forward[1].kind == NodeKind::NUM) 
                 {
+                    op << "$" << node->forward[1].tok.value;
+                    num = 1;
+                }
+                else if (node->forward[1].kind == NodeKind::VAR)
+                {
+                    op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
                     num = 1;
                 }
                 else 
@@ -458,23 +537,22 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                     oprintf("    cmpl %e", loc, "x, %e", l2, "x\n");
                     oprintf("    mov $0, %e", loc, "x\n");
                     oprintf("    setg %", loc, "l\n");
-
                     return;
                 }
             }
+ 
+            oprintf("    cmpl ", op.str(), ", %e", loc, "x\n");
+            oprintf("    mov $0, %e", loc, "x\n");
 
+            // Hack because of stupid operand order
             if (num) 
             {
-                oprintf("    cmpl %e", loc, "x, $", node->forward[num].tok.value, "\n");
+                oprintf("    setg %", loc, "l\n");
             }
-            else 
+            else
             {
-                oprintf("    cmpl $", node->forward[num].tok.value, ", %e", loc, "x\n");
+                oprintf("    setl %", loc, "l\n");
             }
-
-            oprintf("    mov $0, %e", loc, "x\n");
-            // Hack because of stupid operand order
-            oprintf("    setl %", loc, "l\n");
 
             return; 
         }
@@ -486,11 +564,16 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
             std::string l2 = loc == "a" ? "c" : "a";
 
-            char num = 0;
+            std::stringstream op;
+            bool num = 0;
             if (node->forward[0].kind == NodeKind::NUM) 
             {
-                num = 0;
-
+                op << "$" << node->forward[0].tok.value;
+                cgExp(&node->forward[1], loc, true, symtable);
+            }
+            else if (node->forward[0].kind == NodeKind::VAR)
+            {
+                op << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -499,6 +582,12 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
                 if (node->forward[1].kind == NodeKind::NUM) 
                 {
+                    op << "$" << node->forward[1].tok.value;
+                    num = 1;
+                }
+                else if (node->forward[1].kind == NodeKind::VAR)
+                {
+                    op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
                     num = 1;
                 }
                 else 
@@ -512,33 +601,41 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                     oprintf("    cmpl %e", loc, "x, %e", l2, "x\n");
                     oprintf("    mov $0, %e", loc, "x\n");
                     oprintf("    setge %", loc, "l\n");
-
                     return;
                 }
             }
+ 
+            oprintf("    cmpl ", op.str(), ", %e", loc, "x\n");
+            oprintf("    mov $0, %e", loc, "x\n");
 
+            // Hack because of stupid operand order
             if (num) 
             {
-                oprintf("    cmpl %e", loc, "x, $", node->forward[num].tok.value, "\n");
+                oprintf("    setge %", loc, "l\n");
             }
-            else 
+            else
             {
-                oprintf("    cmpl $", node->forward[num].tok.value, ", %e", loc, "x\n");
+                oprintf("    setle %", loc, "l\n");
             }
 
-            oprintf("    mov $0, %e", loc, "x\n");
-            // Hack because of stupid operand order
-            oprintf("    setle %", loc, "l\n");
-
-            return;  
+            return; 
         }
 
         case NodeKind::OR:
         {
             // Gen left recursive
-            cgExp(&node->forward[0], loc, true, symtable);
+            std::stringstream op1;
+            if (node->forward[0].kind == NodeKind::VAR)
+            {
+                op1 << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
+            }
+            else
+            {
+                cgExp(&node->forward[0], loc, true, symtable);
+                op1 << "%e" << loc << "x";
+            }
 
-            oprintf("    cmpl $0, %e", loc, "x\n");
+            oprintf("    cmpl $0, ", op1.str(), "\n");
             oprintf("    je .LC", conditionLblCtr, "\n");
             size_t c2 = conditionLblCtr;
             conditionLblCtr++;
@@ -548,16 +645,23 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             conditionLblCtr++;
 
             // C2 lable (evaluate both exprs)
-            oprintf("    .LC", c2, ":\n");
+            oprintf(".LC", c2, ":\n");
 
             // Check other side of operation if first side doesn't provide enough info
-
-            // Check if right node is a number 
-            cgExp(&node->forward[1], loc, true, symtable);
+            std::stringstream op2;
+            if (node->forward[1].kind == NodeKind::VAR)
+            {
+                op2 << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
+            }
+            else
+            {
+                cgExp(&node->forward[1], loc, true, symtable);
+                op2 << "%e" << loc << "x";
+            }
             
             // Set value
-            oprintf("    cmpl $0, %e", loc, "x\n");
-            oprintf("    mov $0, %e", loc, "x\n");
+            oprintf("    cmpl $0, ", op2.str(), "\n");
+            oprintf("    movl $0, %e", loc, "x\n");
             oprintf("    setne %", loc, "l\n");
 
             // The lable that, if the upper statement evaluates as true, will jump too
@@ -569,19 +673,37 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
         case NodeKind::AND:
         {
             // Gen left recursive
-            cgExp(&node->forward[0], loc, true, symtable);
+            std::stringstream op1;
+            if (node->forward[0].kind == NodeKind::VAR)
+            {
+                op1 << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
+            }
+            else
+            {
+                cgExp(&node->forward[0], loc, true, symtable);
+                op1 << "%e" << loc << "x";
+            }
 
-            oprintf("    cmpl $0, %e", loc, "x\n");
+            oprintf("    cmpl $0, ", op1.str(), "\n");
             oprintf("    je .LC", conditionLblCtr, "\n");
             size_t end = conditionLblCtr;
             conditionLblCtr++;
             
-            // Right recurse if the top condition doesn't evaluate 
-            cgExp(&node->forward[1], loc, true, symtable);
+            // Check other side of operation if first side doesn't provide enough info
+            std::stringstream op2;
+            if (node->forward[1].kind == NodeKind::VAR)
+            {
+                op2 << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
+            }
+            else
+            {
+                cgExp(&node->forward[1], loc, true, symtable);
+                op2 << "%e" << loc << "x";
+            }
             
             // Set value
-            oprintf("    cmpl $0, %e", loc, "x\n");
-            oprintf("    mov $0, %e", loc, "x\n");
+            oprintf("    cmpl $0, ", op2.str(), "\n");
+            oprintf("    movl $0, %e", loc, "x\n");
             oprintf("    setne %", loc, "l\n");
 
             // The lable that, if the upper statement evaluates as true, will jump too
