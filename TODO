@@ -1,7 +1,7 @@
 Current plan
 
 Varmap and no direct var use DONE
-Symtable from semantic analysis, no direct var use
+Symtable from semantic analysis, no direct var use DONE
 Symtable from semantic analysis, direct var use
 
 All registers used at full size (no point in not)

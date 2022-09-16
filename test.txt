@@ -1,6 +1,7 @@
 int test()
 {
     int a = 3;
-    a = b;
+    a = 4;
+    int b;
     return a;
 }

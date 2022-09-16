@@ -8,9 +8,6 @@
 
 static std::string output;
 static size_t conditionLblCtr = 0;
-size_t stackCtr = 4;
-
-std::unordered_map<std::string, size_t> varMap;
 
 template <typename Ty>
 void oprintf(Ty arg1)
@@ -43,13 +40,13 @@ void cgfEpilogue()
     oprintf("    popq %rbp\n");
 }
 
-void cgExp(Node* node, const std::string& loc, bool reg)
+void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 {
     switch (node->kind)
     {
         case NodeKind::NOT:
         {
-            cgExp(&node->forward[0], loc, true);
+            cgExp(&node->forward[0], loc, true, symtable);
             
             // Memory support is later
             oprintf("    cmp $0, %e", loc, "x\n");
@@ -61,7 +58,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
 
         case NodeKind::NEG:
         {
-            cgExp(&node->forward[0], loc, true);
+            cgExp(&node->forward[0], loc, true, symtable);
 
             // Memory support is later
             oprintf("    neg %e", loc, "x\n");
@@ -71,7 +68,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
 
         case NodeKind::BITCOMPL:
         {
-            cgExp(&node->forward[0], loc, true);
+            cgExp(&node->forward[0], loc, true, symtable);
 
             // Memory support is later
             oprintf("    not %e", loc, "x\n");
@@ -99,11 +96,11 @@ void cgExp(Node* node, const std::string& loc, bool reg)
             {
                 num = 0;
 
-                cgExp(&node->forward[1], loc, true);
+                cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
             {
-                cgExp(&node->forward[0], loc, true);
+                cgExp(&node->forward[0], loc, true, symtable);
 
                 if (node->forward[1].kind == NodeKind::NUM) 
                 {
@@ -113,7 +110,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
                 {
                     // Push onto stack cause im to lazy to figure out register allocation
                     oprintf("    push %r", loc, "x\n");
-                    cgExp(&node->forward[1], loc, true);
+                    cgExp(&node->forward[1], loc, true, symtable);
 
                     // Pop from stack into %ecx
                     oprintf("   pop %r", l2, "x\n");
@@ -131,7 +128,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
         case NodeKind::SUB:
         {
             // Gen left recursive
-            cgExp(&node->forward[0], loc, true);
+            cgExp(&node->forward[0], loc, true, symtable);
 
             // Only look if right subnode is a number
             // Because of operand ordering
@@ -146,7 +143,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
             // Push onto stack cause im to lazy to figure out register allocation
             oprintf("    push %r", loc, "x\n");
 
-            cgExp(&node->forward[1], "c", true);
+            cgExp(&node->forward[1], "c", true, symtable);
 
             // Do subtract instruction on %eax, %ecx
             oprintf("    pop %rax\n");
@@ -175,11 +172,11 @@ void cgExp(Node* node, const std::string& loc, bool reg)
             {
                 num = 0;
 
-                cgExp(&node->forward[1], loc, true);
+                cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
             {
-                cgExp(&node->forward[0], loc, true);
+                cgExp(&node->forward[0], loc, true, symtable);
 
                 if (node->forward[1].kind == NodeKind::NUM) 
                 {
@@ -189,7 +186,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
                 {
                     // Push onto stack cause im to lazy to figure out register allocation
                     oprintf("    push %r", loc, "x\n");
-                    cgExp(&node->forward[1], loc, true);
+                    cgExp(&node->forward[1], loc, true, symtable);
 
                     // Pop from stack into %ecx
                     oprintf("    pop %r", l2, "x\n");
@@ -207,12 +204,12 @@ void cgExp(Node* node, const std::string& loc, bool reg)
         case NodeKind::DIV:
         {
             // Gen left recursive
-            cgExp(&node->forward[0], loc, true);
+            cgExp(&node->forward[0], loc, true, symtable);
 
             // Push onto stack cause im to lazy to figure out register allocation
             oprintf("    push %r", loc, "x\n");
 
-            cgExp(&node->forward[1], "c", true);
+            cgExp(&node->forward[1], "c", true, symtable);
 
             // Pop from stack into %eax
             oprintf("    pop %rax\n");
@@ -240,11 +237,11 @@ void cgExp(Node* node, const std::string& loc, bool reg)
             {
                 num = 0;
 
-                cgExp(&node->forward[1], loc, true);
+                cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
             {
-                cgExp(&node->forward[0], loc, true);
+                cgExp(&node->forward[0], loc, true, symtable);
 
                 if (node->forward[1].kind == NodeKind::NUM) 
                 {
@@ -254,7 +251,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
                 {
                     // Push onto stack cause im to lazy to figure out register allocation
                     oprintf("    push %r", loc, "x\n");
-                    cgExp(&node->forward[1], loc, true);
+                    cgExp(&node->forward[1], loc, true, symtable);
 
                     // Pop from stack into %ecx
                     oprintf("    pop %r", l2, "x\n");
@@ -286,11 +283,11 @@ void cgExp(Node* node, const std::string& loc, bool reg)
             {
                 num = 0;
 
-                cgExp(&node->forward[1], loc, true);
+                cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
             {
-                cgExp(&node->forward[0], loc, true);
+                cgExp(&node->forward[0], loc, true, symtable);
 
                 if (node->forward[1].kind == NodeKind::NUM) 
                 {
@@ -300,7 +297,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
                 {
                     // Push onto stack cause im to lazy to figure out register allocation
                     oprintf("    push %r", loc, "x\n");
-                    cgExp(&node->forward[1], loc, true);
+                    cgExp(&node->forward[1], loc, true, symtable);
 
                     // Pop from stack into %ecx
                     oprintf("    pop %r", l2, "x\n");
@@ -332,11 +329,11 @@ void cgExp(Node* node, const std::string& loc, bool reg)
             {
                 num = 0;
 
-                cgExp(&node->forward[1], loc, true);
+                cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
             {
-                cgExp(&node->forward[0], loc, true);
+                cgExp(&node->forward[0], loc, true, symtable);
 
                 if (node->forward[1].kind == NodeKind::NUM) 
                 {
@@ -346,7 +343,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
                 {
                     // Push onto stack cause im to lazy to figure out register allocation
                     oprintf("    push %r", loc, "x\n");
-                    cgExp(&node->forward[1], loc, true);
+                    cgExp(&node->forward[1], loc, true, symtable);
 
                     // Pop from stack into %ecx
                     oprintf("    pop %r", l2, "x\n");
@@ -386,11 +383,11 @@ void cgExp(Node* node, const std::string& loc, bool reg)
             {
                 num = 0;
 
-                cgExp(&node->forward[1], loc, true);
+                cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
             {
-                cgExp(&node->forward[0], loc, true);
+                cgExp(&node->forward[0], loc, true, symtable);
 
                 if (node->forward[1].kind == NodeKind::NUM) 
                 {
@@ -400,7 +397,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
                 {
                     // Push onto stack cause im to lazy to figure out register allocation
                     oprintf("    push %r", loc, "x\n");
-                    cgExp(&node->forward[1], loc, true);
+                    cgExp(&node->forward[1], loc, true, symtable);
 
                     // Pop from stack into %ecx
                     oprintf("    pop %r", l2, "x\n");
@@ -440,11 +437,11 @@ void cgExp(Node* node, const std::string& loc, bool reg)
             {
                 num = 0;
 
-                cgExp(&node->forward[1], loc, true);
+                cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
             {
-                cgExp(&node->forward[0], loc, true);
+                cgExp(&node->forward[0], loc, true, symtable);
 
                 if (node->forward[1].kind == NodeKind::NUM) 
                 {
@@ -454,7 +451,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
                 {
                     // Push onto stack cause im to lazy to figure out register allocation
                     oprintf("    push %r", loc, "x\n");
-                    cgExp(&node->forward[1], loc, true);
+                    cgExp(&node->forward[1], loc, true, symtable);
 
                     // Pop from stack into %ecx
                     oprintf("    pop %r", l2, "x\n");
@@ -494,11 +491,11 @@ void cgExp(Node* node, const std::string& loc, bool reg)
             {
                 num = 0;
 
-                cgExp(&node->forward[1], loc, true);
+                cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
             {
-                cgExp(&node->forward[0], loc, true);
+                cgExp(&node->forward[0], loc, true, symtable);
 
                 if (node->forward[1].kind == NodeKind::NUM) 
                 {
@@ -508,7 +505,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
                 {
                     // Push onto stack cause im to lazy to figure out register allocation
                     oprintf("    push %r", loc, "x\n");
-                    cgExp(&node->forward[1], loc, true);
+                    cgExp(&node->forward[1], loc, true, symtable);
 
                     // Pop from stack into %ecx
                     oprintf("    pop %r", l2, "x\n");
@@ -539,7 +536,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
         case NodeKind::OR:
         {
             // Gen left recursive
-            cgExp(&node->forward[0], loc, true);
+            cgExp(&node->forward[0], loc, true, symtable);
 
             oprintf("    cmpl $0, %e", loc, "x\n");
             oprintf("    je .LC", conditionLblCtr, "\n");
@@ -556,7 +553,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
             // Check other side of operation if first side doesn't provide enough info
 
             // Check if right node is a number 
-            cgExp(&node->forward[1], loc, true);
+            cgExp(&node->forward[1], loc, true, symtable);
             
             // Set value
             oprintf("    cmpl $0, %e", loc, "x\n");
@@ -572,7 +569,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
         case NodeKind::AND:
         {
             // Gen left recursive
-            cgExp(&node->forward[0], loc, true);
+            cgExp(&node->forward[0], loc, true, symtable);
 
             oprintf("    cmpl $0, %e", loc, "x\n");
             oprintf("    je .LC", conditionLblCtr, "\n");
@@ -580,7 +577,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
             conditionLblCtr++;
             
             // Right recurse if the top condition doesn't evaluate 
-            cgExp(&node->forward[1], loc, true);
+            cgExp(&node->forward[1], loc, true, symtable);
             
             // Set value
             oprintf("    cmpl $0, %e", loc, "x\n");
@@ -596,7 +593,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
         case NodeKind::ASSIGN:
         {
             // Make sure lhs is assignable and exists
-            if (!varMap.contains(node->forward[0].tok.value)) throw compiler_error("Expr is not assignable");
+            if (node->forward[0].kind != NodeKind::VAR) throw compiler_error("Expr is not assignable");
 
             // What the variable is being assigned to
             std::stringstream firstHalf;
@@ -607,24 +604,22 @@ void cgExp(Node* node, const std::string& loc, bool reg)
             }
             else if (node->forward[1].kind == NodeKind::VAR)
             {
-                if (!varMap.contains(node->forward[1].tok.value)) throw compiler_error("Variable \'%s\' has not been declared", node->forward[1].tok.value.c_str());
-                firstHalf << "-" << varMap[node->forward[1].tok.value] << "(%rbp)";
+                firstHalf << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
             }
             else 
             {
-                cgExp(&node->forward[1], loc, true);
+                cgExp(&node->forward[1], loc, true, symtable);
                 firstHalf << "%e" << loc << "x";
             }
 
-            oprintf("    movl ", firstHalf.str(), ", -", varMap[node->forward[0].tok.value], "(%rbp)\n");
+            oprintf("    movl ", firstHalf.str(), ", -", symtable.locals[node->forward[0].tok.value].loc, "(%rbp)\n");
 
             return;
         }
 
         case NodeKind::VAR:
         {
-            if (!varMap.contains(node->tok.value)) throw compiler_error("Variable %s has not been declared", node->tok.value.c_str());
-            oprintf("    movl -", varMap[node->tok.value], "(%rbp), %e", loc, "x\n");
+            oprintf("    movl -", symtable.locals[node->tok.value].loc, "(%rbp), %e", loc, "x\n");
 
             return;
         }
@@ -636,7 +631,7 @@ void cgExp(Node* node, const std::string& loc, bool reg)
     }
 }
 
-void cgStmtExp(Node* node)
+void cgStmtExp(Node* node, Symtable& symtable)
 {
     // The final location that the expression will boil down to
     // For return statements, it is rax/eax
@@ -645,7 +640,7 @@ void cgStmtExp(Node* node)
     if (node->kind == NodeKind::RETURN) 
     {
         // The actual return type will be found in the declaration table
-        cgExp(&node->forward[0], "a", 1);
+        cgExp(&node->forward[0], "a", true, symtable);
     }
     else if (node->kind == NodeKind::DECL)
     {
@@ -658,55 +653,48 @@ void cgStmtExp(Node* node)
         }
         else if (node->forward[0].kind == NodeKind::VAR)
         {
-            if (!varMap.contains(node->forward[0].tok.value)) throw compiler_error("Variable %s has not been declared", node->forward[0].tok.value.c_str());
-            firstHalf << "-" << varMap[node->forward[0].tok.value] << "(%rbp)";
+            firstHalf << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
         }
         else 
         {
-            cgExp(&node->forward[0], "a", true);
+            cgExp(&node->forward[0], "a", true, symtable);
             firstHalf << "%eax";
         }
 
-        oprintf("    movl ", firstHalf.str(), ", -", varMap[node->tok.value], "(%rbp)\n");
+        oprintf("    movl ", firstHalf.str(), ", -", symtable.locals[node->tok.value].loc, "(%rbp)\n");
     }
     else 
     {   
-        cgExp(node, "a", 1);
+        cgExp(node, "a", true, symtable);
     }
 
     return;
 }
 
-void cgStmt(Node* node)
+void cgStmt(Node* node, Symtable& symtable)
 {
     switch (node->kind)
     {
         case NodeKind::RETURN:
         {
-            cgStmtExp(node);
+            cgStmtExp(node, symtable);
             cgfEpilogue();
             oprintf("    ret");
             return;
         }
         case NodeKind::DECL:
         {
-            if (varMap.contains(node->tok.value)) throw compiler_error("Variable %s already declared", node->tok.value.c_str());
-            
-            varMap.insert({node->tok.value, stackCtr});
-            stackCtr+=4;
-
-            if (node->forward.size()) cgStmtExp(node);
-
+            if (node->forward.size()) cgStmtExp(node, symtable);
             return;
         }
         default:
         {
-            cgStmtExp(node);
+            cgStmtExp(node, symtable);
         }
     }
 }
 
-std::string& codegen(Node* node)
+std::string& codegen(Node* node, Symtable& symtable)
 {
     if (node->kind != NodeKind::PRGRM) throw std::runtime_error("Invalid parser");
 
@@ -724,7 +712,7 @@ std::string& codegen(Node* node)
     for (size_t i = 0; i < node->forward.size(); i++)
     {
         if (node->forward[i].kind == NodeKind::RETURN) returned = 1;
-        cgStmt(&node->forward[i]);
+        cgStmt(&node->forward[i], symtable);
     }
 
     if (!returned)

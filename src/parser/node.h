@@ -5,20 +5,7 @@
 #include <iostream>
 
 #include "lexer/token.h"
-
-enum class TypeKind
-{
-    INT
-}; 
-
-struct Type
-{
-    TypeKind typeKind;
-    size_t sizeofNode;
-    bool issigned; 
-
-    size_t ptrCount;
-}; 
+#include "type.h"
 
 enum class NodeKind
 {   

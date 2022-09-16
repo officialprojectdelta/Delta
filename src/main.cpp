@@ -2,6 +2,7 @@
 
 #include "lexer/lexer.h"
 #include "parser/parser.h"
+#include "symt/symt.h"
 #include "codegen/codegen.h"
 #include "error/error.h"
 #include "util.h"
@@ -15,8 +16,9 @@ int main(int argc, char** argv)
         auto tokens = scan(readFile(argv[1]));
 
         Node* node = parse(tokens);
-        
-        writeFile(argv[2], codegen(node));
+
+        Symtable table = genEntries(node);        
+        writeFile(argv[2], codegen(node, table));
     }
     catch (compiler_error& e)
     {
