@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <sstream>
 #include <unordered_map>
+#include <array>
 
 #include "util.h"
 #include "error/error.h"
@@ -22,7 +23,13 @@ std::unordered_map</* Binary operator */ TokenType, std::pair<size_t /* Preceden
     {TokenType::LESS, {4, 0}},
     {TokenType::LESSEQ, {4, 0}},
     {TokenType::GREATER, {4, 0}},
-    {TokenType::GREATEREQ, {4, 0}}
+    {TokenType::GREATEREQ, {4, 0}},
+    {TokenType::ASSIGN, {0, 1}},
+});
+
+// List of types (only contains int for now)
+std::array<TokenType, 1> types({
+    TokenType::TINT
 });
 
 // Function definitions not all are needed, but they are all here (some are needed)
@@ -72,17 +79,22 @@ Node* parseFunction(Node* current, Tokenizer& tokens)
     tokens.inc();
     if (tokens.cur().type != TokenType::OBRACKET) throw compiler_error("Invalid function declaration");
     tokens.inc();
+
+    // Loop through func (which is a list of statements), if } is found end the loop
+    while (true) 
+    {
+        if (tokens.cur().type == TokenType::CBRACKET) return current;
+
+        // This is evaluated in the parseStatement function
+        current->forward.emplace_back(NodeKind::NOKIND, current);
     
-    // This is evaluated in the parseStatement function
-    current->forward.emplace_back(NodeKind::NOKIND, current);
-    
-    parseStatement(&current->forward.back(), tokens);
+        parseStatement(&current->forward.back(), tokens);
 
-    tokens.inc();
+        // Increment tokens before restarting the loop
+        tokens.inc(); 
 
-    if (tokens.cur().type != TokenType::CBRACKET) throw compiler_error("Invalid function declaration");
-
-    return current;
+        tokens.check("Invalid function declaration");
+    }
 }
 
 Node* parseStatement(Node* current, Tokenizer& tokens)
@@ -94,18 +106,37 @@ Node* parseStatement(Node* current, Tokenizer& tokens)
 
         current->forward.emplace_back(NodeKind::NOKIND, current);
 
-        parseExp(&current->forward.back(), tokens, 1);
-
-        return current;
+        parseExp(&current->forward.back(), tokens, 0);
     }
+    // Check if it is a declaration
+    else if (std::find(types.begin(), types.end(), tokens.cur().type) != types.end())
+    {
+        current->kind = NodeKind::DECL;
+        current->type = Type({TypeKind::INT, 4, true, 0});
+        tokens.inc();
+        current->tok = tokens.inc();
+
+        // Check if it is just a declaration or an assignment
+        if (tokens.cur().type == TokenType::ASSIGN)
+        {
+            tokens.inc();
+            current->forward.emplace_back(NodeKind::NOKIND, current);
+            parseExp(&current->forward.back(), tokens, 0);
+        }
+    }
+    // Is expression (error handling done in parseexp)
     else
     {
-        throw compiler_error("Invalid statement: %s", tokens.cur().value.c_str());
+        parseExp(current, tokens, 0);
     }
+
+    if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of statement");
+
+    return current;
 }
 
 Node* parseExp(Node* current, Tokenizer& tokens, size_t min_prec)
-{
+{   
     parseAtom(current, tokens);
 
     while (true)
@@ -125,6 +156,7 @@ Node* parseExp(Node* current, Tokenizer& tokens, size_t min_prec)
             {TokenType::LESSEQ, NodeKind::LESSEQ},
             {TokenType::GREATER, NodeKind::GREATER},
             {TokenType::GREATEREQ, NodeKind::GREATEREQ}, 
+            {TokenType::ASSIGN, NodeKind::ASSIGN}, 
         });
 
         Node temp = std::move(*current);
@@ -154,7 +186,7 @@ Node* parseAtom(Node* current, Tokenizer& tokens)
     {
         tokens.inc();
 
-        parseExp(current, tokens, 1);
+        parseExp(current, tokens, 0);
 
         if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Unmatched parenthesis \'(\'");
         else 
@@ -172,6 +204,15 @@ Node* parseAtom(Node* current, Tokenizer& tokens)
         current->type.issigned = true;
         current->type.ptrCount = 0;
 
+        current->tok = tokens.cur();
+
+        tokens.inc();
+
+        return current;
+    }
+    else if (tokens.cur().type == TokenType::IDENT)
+    {
+        current->kind = NodeKind::VAR;
         current->tok = tokens.cur();
 
         tokens.inc();

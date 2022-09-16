@@ -40,7 +40,10 @@ enum class NodeKind
     LESSEQ,
     GREATER,
     GREATEREQ,
+    ASSIGN, 
     NUM, 
+    DECL,
+    VAR, 
     NOKIND
 };
 

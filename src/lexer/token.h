@@ -5,6 +5,8 @@
 #include <vector>
 #include <iostream>
 
+#include "error/error.h"
+
 enum class TokenType
 {
     OBRACKET,
@@ -28,6 +30,7 @@ enum class TokenType
     GREATEREQ,
     TINT,
     RET,
+    ASSIGN, 
     INTV,
     IDENT,
     NULLTOK
@@ -76,6 +79,7 @@ public:
     Token& cur() { return tokens.at(pos); };
     Token& inc() { pos++; return tokens.at(pos - 1); }
     size_t size() { return tokens.size(); }
+    void check(const std::string& str) { if (pos >= tokens.size()) throw compiler_error(str); }
 };
 
 std::ostream& operator<<(std::ostream& os, const Token& t);

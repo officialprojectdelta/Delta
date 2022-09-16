@@ -1,8 +1,10 @@
 #include <stdio.h>
 
-int test(void);
-
 int main(void)
 {
-    printf("%d", test());
+    int a = 3;
+    int b = 4;
+    int c = 7;
+    a = b * (c = 2 * 234);
+    printf("%d", a);
 }

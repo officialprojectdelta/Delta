@@ -2,11 +2,15 @@
 
 #include <sstream>
 #include <array>
+#include <unordered_map>
 
 #include "error/error.h"
 
 static std::string output;
 static size_t conditionLblCtr = 0;
+size_t stackCtr = 4;
+
+std::unordered_map<std::string, size_t> varMap;
 
 template <typename Ty>
 void oprintf(Ty arg1)
@@ -25,6 +29,18 @@ void oprintf(Ty arg1, types... args)
     output.append(str.str());
     oprintf(args...);
     return;
+}
+
+void cgfPrologue()
+{
+    oprintf("    pushq %rbp\n");
+    oprintf("    movq %rsp, %rbp\n");
+}
+
+void cgfEpilogue()
+{
+    oprintf("    movq %rbp, %rsp\n");
+    oprintf("    popq %rbp\n");
 }
 
 void cgExp(Node* node, const std::string& loc, bool reg)
@@ -176,8 +192,8 @@ void cgExp(Node* node, const std::string& loc, bool reg)
                     cgExp(&node->forward[1], loc, true);
 
                     // Pop from stack into %ecx
-                    oprintf("   pop %r", l2, "x\n");
-                    oprintf("   imul %e", l2, "x, %e", loc, "x\n");
+                    oprintf("    pop %r", l2, "x\n");
+                    oprintf("    imul %e", l2, "x, %e", loc, "x\n");
 
                     return;
                 }
@@ -577,34 +593,54 @@ void cgExp(Node* node, const std::string& loc, bool reg)
             return; 
         }
 
+        case NodeKind::ASSIGN:
+        {
+            // Make sure lhs is assignable and exists
+            if (!varMap.contains(node->forward[0].tok.value)) throw compiler_error("Expr is not assignable");
+
+            cgExp(&node->forward[1], loc, true);
+
+            oprintf("    movl %e", loc, "x, -", varMap[node->forward[0].tok.value], "(%rbp)\n");
+
+            return;
+        }
+
+        case NodeKind::VAR:
+        {
+            if (!varMap.contains(node->tok.value)) throw compiler_error("Variable %s has not been declared", node->tok.value.c_str());
+            oprintf("    movl -", varMap[node->tok.value], "(%rbp), %e", loc, "x\n");
+
+            return;
+        }
+
         default:
         {
-            throw compiler_error("Bad char");
+            throw compiler_error("Bad nodetype %d", (size_t) node->kind);
         }
     }
 }
 
-void cgStmtExp(Node* node, NodeKind ctx)
+void cgStmtExp(Node* node)
 {
     // The final location that the expression will boil down to
     // For return statements, it is rax/eax
     // For variable assignments, it is the stack location of the variable
 
-    std::string floc;
-    bool reg;
-    if (ctx == NodeKind::RETURN) 
+    if (node->kind == NodeKind::RETURN) 
     {
         // The actual return type will be found in the declaration table
-        floc = "a";
-        reg = 1;
+        cgExp(&node->forward[0], "a", 1);
+    }
+    else if (node->kind == NodeKind::DECL)
+    {
+        // Using registers, then moving to a variable
+        cgExp(&node->forward[0], "a", 1);
+        oprintf("    movl %eax, -", varMap[node->tok.value], "(%rbp)\n");
     }
     else 
-    {
-        // Getting the final location for a variable
-        throw compiler_error("We don't have variables yet");
+    {   
+        cgExp(node, "a", 1);
     }
-
-    cgExp(node, floc, reg);
 
     return;
 }
@@ -615,14 +651,25 @@ void cgStmt(Node* node)
     {
         case NodeKind::RETURN:
         {
-            cgStmtExp(&node->forward[0], NodeKind::RETURN);
+            cgStmtExp(node);
+            cgfEpilogue();
             oprintf("    ret");
             return;
         }
-        
+        case NodeKind::DECL:
+        {
+            if (varMap.contains(node->tok.value)) throw compiler_error("Variable %s already declared", node->tok.value.c_str());
+            
+            varMap.insert({node->tok.value, stackCtr});
+            stackCtr+=4;
+
+            if (node->forward.size()) cgStmtExp(node);
+
+            return;
+        }
         default:
         {
-            throw std::runtime_error("Not a statement");
+            cgStmtExp(node);
         }
     }
 }
@@ -638,7 +685,22 @@ std::string& codegen(Node* node)
     oprintf(".globl ", node->tok.value, "\n");
     oprintf(node->tok.value, ":\n");
 
-    cgStmt(&node->forward[0]);
+    cgfPrologue();
+
+    bool returned = 0;
+
+    for (size_t i = 0; i < node->forward.size(); i++)
+    {
+        if (node->forward[i].kind == NodeKind::RETURN) returned = 1;
+        cgStmt(&node->forward[i]);
+    }
+
+    if (!returned)
+    {
+        oprintf("    movl $0, %eax\n");
+        cgfEpilogue();
+        oprintf("    ret\n");
+    }
 
     return output;
 }

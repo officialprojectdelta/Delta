@@ -1,3 +1,12 @@
+Current plan
+
+Varmap and no direct var use DONE
+Symtabel from semantic analysis, no direct var use
+Symtabel from semantic analysis, direct var use
+
+All registers used at full size (no point in not)
+
+
 Todo's for the delta project (not organized, just a list, but with a general idea of what needs to happen sooner)
 
 In a long time, actually do register allocation 

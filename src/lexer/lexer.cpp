@@ -38,6 +38,7 @@ std::unordered_map<std::string, Token> map({
     {">=", Token(TokenType::GREATEREQ)}, 
     {"int", Token(TokenType::TINT)}, 
     {"return", Token(TokenType::RET)}, 
+    {"=", Token(TokenType::ASSIGN)}, 
     {"[integer]", Token(TokenType::INTV)}, 
     {"[alphan]", Token(TokenType::IDENT)}
 });
