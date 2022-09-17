@@ -30,6 +30,8 @@ enum class TokenType
     GREATEREQ,
     TINT,
     RET,
+    IF,
+    ELSE,
     ASSIGN, 
     INTV,
     IDENT,

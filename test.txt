@@ -1,5 +1,6 @@
 int test()
 {
-    int a = 3;
-    return 8 - a;
+    if (8 - 8) return 0;
+    else if (5 - 5) return 3;
+    else return 1;
 }

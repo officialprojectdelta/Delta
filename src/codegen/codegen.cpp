@@ -753,7 +753,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
     }
 }
 
-void cgStmtExp(Node* node, Symtable& symtable)
+void cgStmtExp(Node* node, Symtable& symtable, size_t idx = 0)
 {
     // The final location that the expression will boil down to
     // For return statements, it is rax/eax
@@ -762,24 +762,29 @@ void cgStmtExp(Node* node, Symtable& symtable)
     if (node->kind == NodeKind::RETURN) 
     {
         // The actual return type will be found in the declaration table
-        cgExp(&node->forward[0], "a", true, symtable);
+        cgExp(&node->forward[idx], "a", true, symtable);
+    }
+    else if (node->kind == NodeKind::IF) 
+    {
+        // The actual return type will be found in the declaration table
+        cgExp(&node->forward[idx], "a", true, symtable);
     }
     else if (node->kind == NodeKind::DECL)
     {
         // What the variable is being assigned to
         std::stringstream firstHalf;
 
-        if (node->forward[0].kind == NodeKind::NUM) 
+        if (node->forward[idx].kind == NodeKind::NUM) 
         {
-            firstHalf << "$" << node->forward[0].tok.value;
+            firstHalf << "$" << node->forward[idx].tok.value;
         }
-        else if (node->forward[0].kind == NodeKind::VAR)
+        else if (node->forward[idx].kind == NodeKind::VAR)
         {
-            firstHalf << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
+            firstHalf << "-" << symtable.locals[node->forward[idx].tok.value].loc << "(%rbp)\n";
         }
         else 
         {
-            cgExp(&node->forward[0], "a", true, symtable);
+            cgExp(&node->forward[idx], "a", true, symtable);
             firstHalf << "%eax";
         }
 
@@ -801,7 +806,40 @@ void cgStmt(Node* node, Symtable& symtable)
         {
             cgStmtExp(node, symtable);
             cgfEpilogue();
-            oprintf("    ret");
+            oprintf("    ret\n");
+            return;
+        }
+        case NodeKind::IF:
+        {
+            cgStmtExp(node, symtable);
+
+            oprintf("    cmpl $0, %eax\n");
+            oprintf("    je .LC", conditionLblCtr, "\n");
+
+            size_t s2 = conditionLblCtr;
+            conditionLblCtr++;
+
+            cgStmt(&node->forward[1], symtable);
+
+            // Else statement
+            if (node->forward.size() == 3) 
+            {
+                oprintf("    jmp .LC", conditionLblCtr, "\n");
+
+                size_t end = conditionLblCtr;
+                conditionLblCtr++;
+
+                oprintf(".LC", s2, ":\n");
+
+                cgStmt(&node->forward[2], symtable);
+
+                oprintf(".LC", end, ":\n");
+            }
+            else 
+            {
+                oprintf(".LC", s2, ":\n");
+            }
+
             return;
         }
         case NodeKind::DECL:

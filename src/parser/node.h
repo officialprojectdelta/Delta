@@ -12,6 +12,9 @@ enum class NodeKind
     PRGRM, 
     FUNCTION, 
     RETURN,
+    IF,
+    ELSE,
+    ELIF, // TODO later, more efficient else if statements (only one jump instead of 2)
     ADD, 
     SUB,
     MUL, 

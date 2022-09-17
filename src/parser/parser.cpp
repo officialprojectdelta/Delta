@@ -35,6 +35,7 @@ std::array<TokenType, 1> types({
 // Function definitions not all are needed, but they are all here (some are needed)
 Node* parseProgram(Node* current, Tokenizer& tokens);
 Node* parseFunction(Node* current, Tokenizer& tokens);
+Node* parseBlkitem(Node* current, Tokenizer& tokens);
 Node* parseStatement(Node* current, Tokenizer& tokens);
 Node* parseExp(Node* current, Tokenizer& tokens, size_t min_prec);
 Node* parseAtom(Node* current, Tokenizer& tokens);
@@ -88,7 +89,7 @@ Node* parseFunction(Node* current, Tokenizer& tokens)
         // This is evaluated in the parseStatement function
         current->forward.emplace_back(NodeKind::NOKIND, current);
     
-        parseStatement(&current->forward.back(), tokens);
+        parseBlkitem(&current->forward.back(), tokens);
 
         // Increment tokens before restarting the loop
         tokens.inc(); 
@@ -97,19 +98,12 @@ Node* parseFunction(Node* current, Tokenizer& tokens)
     }
 }
 
-Node* parseStatement(Node* current, Tokenizer& tokens)
+// Make sure declarations arn't in if statements that don't create a new scope
+// So there is no if variable creation
+Node* parseBlkitem(Node* current, Tokenizer& tokens)
 {
-    if (tokens.cur().type == TokenType::RET)
-    {
-        current->kind = NodeKind::RETURN;
-        tokens.inc();
-
-        current->forward.emplace_back(NodeKind::NOKIND, current);
-
-        parseExp(&current->forward.back(), tokens, 0);
-    }
-    // Check if it is a declaration
-    else if (std::find(types.begin(), types.end(), tokens.cur().type) != types.end())
+    // Check for declaration
+    if (std::find(types.begin(), types.end(), tokens.cur().type) != types.end())
     {
         current->kind = NodeKind::DECL;
         current->type = Type({TypeKind::INT, 4, true, 0});
@@ -122,15 +116,74 @@ Node* parseStatement(Node* current, Tokenizer& tokens)
             tokens.inc();
             current->forward.emplace_back(NodeKind::NOKIND, current);
             parseExp(&current->forward.back(), tokens, 0);
+            // Make sure a statement ends in a semicolon
+            if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of statement");
         }
+
+        return current;
+    }
+    // Parse as a statement
+    else
+    {
+        parseStatement(current, tokens);
+        return current;
+    }
+}
+
+Node* parseStatement(Node* current, Tokenizer& tokens)
+{
+    // Return statement
+    if (tokens.cur().type == TokenType::RET)
+    {
+        current->kind = NodeKind::RETURN;
+
+        tokens.inc();
+
+        current->forward.emplace_back(NodeKind::NOKIND, current);
+        parseExp(&current->forward.back(), tokens, 0);
+
+        // Make sure a return statement ends in a semicolon
+        if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of statement");
+
+        return current;
+    }
+    // If statement
+    if (tokens.cur().type == TokenType::IF)
+    {
+        current->kind = NodeKind::IF;
+        tokens.inc();
+        if (tokens.cur().type != TokenType::OPAREN) throw compiler_error("Expected '(' before expr %d", (size_t) tokens.cur().type);
+        tokens.inc();
+
+        // Get condition expression
+        current->forward.emplace_back(NodeKind::NOKIND, current);
+        parseExp(&current->forward.back(), tokens, 0);
+
+        if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Expected ')' as end of statement");
+        tokens.inc();
+
+        // Get statement to execute if condition is true
+        current->forward.emplace_back(NodeKind::NOKIND, current);
+        parseStatement(&current->forward.back(), tokens);
+        tokens.inc();
+
+        // Check if next token is else
+        if (tokens.cur().type == TokenType::ELSE) 
+        { 
+            tokens.inc();
+            current->forward.emplace_back(NodeKind::NOKIND, current);
+            parseStatement(&current->forward.back(), tokens);
+        }
+
+        return current;
     }
     // Is expression (error handling done in parseexp)
     else
     {
         parseExp(current, tokens, 0);
+        // Make sure a statement ends in a semicolon
+        if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of statement");
     }
-
-    if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of statement");
 
     return current;
 }
