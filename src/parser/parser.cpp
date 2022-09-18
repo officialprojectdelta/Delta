@@ -165,17 +165,37 @@ Node* parseStatement(Node* current, Tokenizer& tokens)
         // Get statement to execute if condition is true
         current->forward.emplace_back(NodeKind::NOKIND, current);
         parseStatement(&current->forward.back(), tokens);
-        tokens.inc();
 
         // Check if next token is else
-        if (tokens.cur().type == TokenType::ELSE) 
+        if (tokens.cur(1).type == TokenType::ELSE) 
         { 
+            tokens.inc();
             tokens.inc();
             current->forward.emplace_back(NodeKind::NOKIND, current);
             parseStatement(&current->forward.back(), tokens);
         }
 
         return current;
+    }
+    else if (tokens.cur().type == TokenType::OBRACKET)
+    {
+        current->kind = NodeKind::BLOCKSTMT;
+        tokens.inc();
+
+        while (true)
+        {
+            if (tokens.cur().type == TokenType::CBRACKET) return current;
+
+            // This is evaluated in the parseStatement function
+            current->forward.emplace_back(NodeKind::NOKIND, current);
+        
+            parseBlkitem(&current->forward.back(), tokens);
+
+            // Increment tokens before restarting the loop
+            tokens.inc(); 
+
+            tokens.check("Invalid block statement");
+        }
     }
     // Is expression (error handling done in parseexp)
     else

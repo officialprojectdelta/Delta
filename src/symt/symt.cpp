@@ -1,15 +1,61 @@
 #include "symt.h"
 
+#include <sstream>
+
 #include "error/error.h"
 
-// Goes through an expression recusively and checks if a variable has been used before it has been declared
-void checkExp(std::string scopeName, Symtable& symtable, Node* node)
+// The number of created scopes
+size_t scopeCtr = 0;
+
+// The stack idx 
+size_t stackCtr = 4;
+
+void incScope(Scope* scope, size_t size)
 {
-    if (node->kind == NodeKind::VAR && !symtable.locals.contains(node->tok.value)) throw compiler_error("Variable '%s' has not been declared", node->tok.value.c_str());
+    stackCtr+=size;
+    scope->stackOffset+=size;
+}
+
+void genScope(Scope* current, Symtable& symtable, Node* node);
+void checkVars(Scope* scope, Symtable& symtable, Node* node);
+
+// Goes through an expression recusively and checks if a variable has been used before it has been declared
+void checkVars(Scope* scope, Symtable& symtable, Node* node)
+{
+    if (node->kind == NodeKind::VAR) 
+    {
+        while (true)
+        {
+            std::stringstream scopeNm;
+            scopeNm << node->tok.value << scope->scopeCtr;
+
+            if (scope->locals.contains(scopeNm.str()))
+            {
+                node->varName = scopeNm.str();
+                break;
+            }
+
+            if (scope->back == nullptr)
+            {
+                // Once globals are added, check for them
+                throw compiler_error("Variable '%s' has not been declared", node->tok.value.c_str());
+            }
+
+            scope = scope->back;
+        }
+    }
+    else if (node->kind == NodeKind::BLOCKSTMT)
+    {
+        scopeCtr++;
+        scope->forward.emplace_back(scope, scopeCtr);
+        genScope(&scope->forward.back(), symtable, node);
+        stackCtr -= scope->forward.back().stackOffset;
+        return;
+    }
 
     for (size_t i = 0; i < node->forward.size(); i++)
     {
-        checkExp(scopeName, symtable, &node->forward[i]);
+        checkVars(scope, symtable, &node->forward[i]);
     }
 
     return;
@@ -21,10 +67,9 @@ void checkExp(std::string scopeName, Symtable& symtable, Node* node)
 // There will be a recursive data and an actual data
 // The actual data contains all the info and is just a list
 // The recursive data is recursively stored, and just contains local var names
-void genScope(std::string scopeName, Symtable& symtable, Node* node)
+void genScope(Scope* current, Symtable& symtable, Node* node)
 {
-    size_t stackCtr = 4;
-    if (node->kind == NodeKind::FUNCTION)
+    if (node->kind == NodeKind::FUNCTION || node->kind == NodeKind::BLOCKSTMT)
     {
         for (size_t i = 0; i < node->forward.size(); i++)
         {
@@ -32,19 +77,67 @@ void genScope(std::string scopeName, Symtable& symtable, Node* node)
             {
                 // Add declaration to symtable
                 // Make sure it isn't already declared
-                if (symtable.locals.contains(node->forward[i].tok.value))  throw compiler_error("Variable %s already declared", node->forward[i].tok.value.c_str());
-                symtable.locals.insert({node->forward[i].tok.value, {node->forward[i].type, scopeName, stackCtr}});
-                stackCtr+=4;
-                // Check expr
+
+                // The name + scope of variable
+                std::stringstream scopeNm;
+                scopeNm << node->forward[i].tok.value << current->scopeCtr;
+                node->forward[i].varName = scopeNm.str();
+                
+                // Check if variable has already been declared in this scope
+                if (symtable.locals.contains(scopeNm.str())) throw compiler_error("Variable %s already declared", scopeNm.str().c_str());
+
+                // Insert to symtable
+                symtable.locals.insert({scopeNm.str(), {node->forward[i].type, stackCtr}});
+
+                // Insert to scope tree
+                current->locals.insert(scopeNm.str());
+
+                // Increment stack index (will depend on type once there are multiple)
+                incScope(current, 4);
+
+                // Check the assign stmt, if there is one
                 if (node->forward[i].forward.size()) 
                 {
-                    checkExp(scopeName, symtable, &node->forward[i].forward[0]);
+                    checkVars(current, symtable, &node->forward[i].forward[0]);
                 }
             }
-            else 
+            else if (node->forward[i].kind == NodeKind::BLOCKSTMT)
             {
+                scopeCtr++;
+                current->forward.emplace_back(current, scopeCtr);
+                genScope(&current->forward.back(), symtable, &node->forward[i]);
+                stackCtr -= current->forward.back().stackOffset;
+            }
+            else { 
+                if (node->kind == NodeKind::VAR) 
+                {
+                    while (true)
+                    {
+                        if (current == nullptr)
+                        {
+                            // Once globals are added, check for them
+                            throw compiler_error("Variable '%s' has not been declared", node->tok.value.c_str());
+                        }
+
+                        std::stringstream scopeNm;
+                        scopeNm << node->tok.value << current->scopeCtr;
+
+                        if (current->locals.contains(scopeNm.str()))
+                        {
+                            node->varName = scopeNm.str();
+                            break;
+                        }
+                        current = current->back;
+                    }
+
+                    continue;
+                }
+
                 // Check exp
-                checkExp(scopeName, symtable, &node->forward[i]);
+                for (; i < node->forward.size(); i++)
+                {
+                    checkVars(current, symtable, &node->forward[i]);
+                }
             }
         }
     }
@@ -58,8 +151,11 @@ Symtable genEntries(Node* node)
     {
         if (node->forward[i].kind == NodeKind::FUNCTION)
         {
+            // Create function scope
+            Scope* fn = new Scope(nullptr, scopeCtr);
             symtable.globals.insert({node->forward[i].tok.value, node->forward[i].type});
-            genScope(node->forward[i].tok.value, symtable, &node->forward[i]);
+            genScope(fn, symtable, &node->forward[i]);
+            delete fn;
         }
         else throw compiler_error("%d is not a valid global entry", (int) node->forward[i].kind);
     }

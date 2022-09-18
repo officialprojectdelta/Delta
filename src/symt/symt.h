@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <unordered_set>
 
 #include "parser/node.h"
 
@@ -9,11 +10,31 @@
 // Then for functions/structs go through and write down local/member data
 // For each new scope entry, (only for functions), change the scope, reset the counter, and continue
 
+struct Scope 
+{
+    // Could be unordered map, with type info (once there are multiple types)
+    std::unordered_set<std::string> locals;
+
+    // ScopeCtr, the current scope ctr saved when scope is created
+    size_t scopeCtr;
+
+    // The amount of bytes stored by this scope, used for deallocation
+    size_t stackOffset;
+
+    std::vector<Scope> forward;
+    Scope* back;
+
+    Scope(Scope* back, size_t scopeCtr)
+    {
+        this->back = back;
+        this->scopeCtr = scopeCtr;
+    }
+};
+
 // Info for the locals in the symtable
 struct localInfo
 {
     Type type;
-    std::string scopenm;
     size_t loc;
 };
 

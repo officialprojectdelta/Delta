@@ -11,8 +11,11 @@ main:                                   # @main
 	.cfi_offset %rbp, -16
 	movq	%rsp, %rbp
 	.cfi_def_cfa_register %rbp
-	movl	$3, -4(%rbp)
-	xorl	%eax, %eax
+	movl	$0, -4(%rbp)
+	movl	$3, -8(%rbp)
+	movl	$4, -12(%rbp)
+	movl	-8(%rbp), %eax
+	addl	-12(%rbp), %eax
 	popq	%rbp
 	.cfi_def_cfa %rsp, 8
 	retq

@@ -100,7 +100,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[0].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
+                op << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -113,7 +113,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 }
                 else if (node->forward[1].kind == NodeKind::VAR)
                 {
-                    op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
+                    op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
                 }
                 else 
                 {
@@ -148,7 +148,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[1].kind == NodeKind::VAR)
             {
-                oprintf("    subl -", symtable.locals[node->forward[1].tok.value].loc, "(%rbp), %e", loc, "x\n");
+                oprintf("    subl -", symtable.locals[node->forward[1].varName].loc, "(%rbp), %e", loc, "x\n");
                 return;
             }
 
@@ -190,7 +190,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[0].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
+                op << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -203,7 +203,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 }
                 else if (node->forward[1].kind == NodeKind::VAR)
                 {
-                    op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
+                    op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
                 }
                 else 
                 {
@@ -233,7 +233,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
             if (node->forward[1].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
+                op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
             }
             else
             {
@@ -275,7 +275,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[0].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
+                op << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -288,7 +288,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 }
                 else if (node->forward[1].kind == NodeKind::VAR)
                 {
-                    op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
+                    op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
                 }
                 else 
                 {
@@ -328,7 +328,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[0].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
+                op << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -341,7 +341,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 }
                 else if (node->forward[1].kind == NodeKind::VAR)
                 {
-                    op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
+                    op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
                 }
                 else 
                 {
@@ -381,7 +381,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[0].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
+                op << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -395,7 +395,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 }
                 else if (node->forward[1].kind == NodeKind::VAR)
                 {
-                    op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
+                    op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
                     num = 1;
                 }
                 else 
@@ -445,7 +445,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[0].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
+                op << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -459,7 +459,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 }
                 else if (node->forward[1].kind == NodeKind::VAR)
                 {
-                    op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
+                    op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
                     num = 1;
                 }
                 else 
@@ -509,7 +509,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[0].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
+                op << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -523,7 +523,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 }
                 else if (node->forward[1].kind == NodeKind::VAR)
                 {
-                    op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
+                    op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
                     num = 1;
                 }
                 else 
@@ -573,7 +573,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[0].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
+                op << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -587,7 +587,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 }
                 else if (node->forward[1].kind == NodeKind::VAR)
                 {
-                    op << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
+                    op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
                     num = 1;
                 }
                 else 
@@ -627,7 +627,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             std::stringstream op1;
             if (node->forward[0].kind == NodeKind::VAR)
             {
-                op1 << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
+                op1 << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
             }
             else
             {
@@ -651,7 +651,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             std::stringstream op2;
             if (node->forward[1].kind == NodeKind::VAR)
             {
-                op2 << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
+                op2 << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
             }
             else
             {
@@ -676,7 +676,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             std::stringstream op1;
             if (node->forward[0].kind == NodeKind::VAR)
             {
-                op1 << "-" << symtable.locals[node->forward[0].tok.value].loc << "(%rbp)";
+                op1 << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
             }
             else
             {
@@ -693,7 +693,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             std::stringstream op2;
             if (node->forward[1].kind == NodeKind::VAR)
             {
-                op2 << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
+                op2 << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
             }
             else
             {
@@ -726,7 +726,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[1].kind == NodeKind::VAR)
             {
-                firstHalf << "-" << symtable.locals[node->forward[1].tok.value].loc << "(%rbp)";
+                firstHalf << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
             }
             else 
             {
@@ -734,14 +734,14 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 firstHalf << "%e" << loc << "x";
             }
 
-            oprintf("    movl ", firstHalf.str(), ", -", symtable.locals[node->forward[0].tok.value].loc, "(%rbp)\n");
+            oprintf("    movl ", firstHalf.str(), ", -", symtable.locals[node->forward[0].varName].loc, "(%rbp)\n");
 
             return;
         }
 
         case NodeKind::VAR:
         {
-            oprintf("    movl -", symtable.locals[node->tok.value].loc, "(%rbp), %e", loc, "x\n");
+            oprintf("    movl -", symtable.locals[node->varName].loc, "(%rbp), %e", loc, "x\n");
 
             return;
         }
@@ -780,15 +780,15 @@ void cgStmtExp(Node* node, Symtable& symtable, size_t idx = 0)
         }
         else if (node->forward[idx].kind == NodeKind::VAR)
         {
-            firstHalf << "-" << symtable.locals[node->forward[idx].tok.value].loc << "(%rbp)\n";
+            firstHalf << "-" << symtable.locals[node->forward[idx].varName].loc << "(%rbp)\n";
         }
         else 
         {
             cgExp(&node->forward[idx], "a", true, symtable);
             firstHalf << "%eax";
         }
-
-        oprintf("    movl ", firstHalf.str(), ", -", symtable.locals[node->tok.value].loc, "(%rbp)\n");
+        
+        oprintf("    movl ", firstHalf.str(), ", -", symtable.locals[node->varName].loc, "(%rbp)\n");
     }
     else 
     {   
@@ -845,6 +845,15 @@ void cgStmt(Node* node, Symtable& symtable)
         case NodeKind::DECL:
         {
             if (node->forward.size()) cgStmtExp(node, symtable);
+            return;
+        }
+        case NodeKind::BLOCKSTMT:
+        {
+            for (size_t i = 0; i < node->forward.size(); i++)
+            {
+                cgStmt(&node->forward[i], symtable);
+            }
+
             return;
         }
         default:

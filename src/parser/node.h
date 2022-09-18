@@ -12,6 +12,7 @@ enum class NodeKind
     PRGRM, 
     FUNCTION, 
     RETURN,
+    BLOCKSTMT,
     IF,
     ELSE,
     ELIF, // TODO later, more efficient else if statements (only one jump instead of 2)
@@ -46,6 +47,7 @@ struct Node
     
     Type type;
     Token tok;
+    std::string varName; // Used as the variable name in finding it's location in the varmap
 
     std::vector<Node> forward; // The nodes that this node points to. Amount depends on NodeKind
 
