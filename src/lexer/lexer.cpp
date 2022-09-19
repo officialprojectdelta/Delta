@@ -40,6 +40,11 @@ std::unordered_map<std::string, Token> map({
     {"return", Token(TokenType::RET)}, 
     {"if", Token(TokenType::IF)}, 
     {"else", Token(TokenType::ELSE)}, 
+    {"for", Token(TokenType::FOR)}, 
+    {"while", Token(TokenType::WHILE)}, 
+    {"do", Token(TokenType::DO)}, 
+    {"break", Token(TokenType::BREAK)}, 
+    {"continue", Token(TokenType::CONTINUE)}, 
     {"=", Token(TokenType::ASSIGN)}, 
     {"[integer]", Token(TokenType::INTV)}, 
     {"[alphan]", Token(TokenType::IDENT)}

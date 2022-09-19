@@ -2,22 +2,25 @@
 test:
     pushq %rbp
     movq %rsp, %rbp
-    movl $1, -4(%rbp)
-    movl -4(%rbp), %eax
-    cmp $0, %eax
+    movl $0, -4(%rbp)
+.LC0:
+    movl $1, %eax
+    cmpl $0, %eax
+    je .LC1
+    movl $5, %eax
+    cmpl -4(%rbp), %eax
     mov $0, %eax
     sete %al
     cmpl $0, %eax
-    je .LC0
-    movl $3, -8(%rbp)
-    movl $2, %eax
-    addl -4(%rbp), %eax
-    movl %eax, -8(%rbp)
+    je .LC2
     jmp .LC1
-.LC0:
-    movl $2, -4(%rbp)
+.LC2:
+    movl $1, %eax
+    addl -4(%rbp), %eax
+    movl %eax, -4(%rbp)
+    jmp .LC0
 .LC1:
-    movl -4(%rbp), %eax
+    movl $7, %eax
     movq %rbp, %rsp
     popq %rbp
     ret

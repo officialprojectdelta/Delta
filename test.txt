@@ -1,15 +1,12 @@
 int test()
 {
-    int a = 1;
-    if (!a) 
-    {   
-        int b = 3;
-        b = a + 2;
-    }
-    else
+    int j = 0;
+
+    while (1) 
     {
-        a = 2;
+        if (j == 5) break;
+        j = j + 1;
     }
 
-    return a;
+    return 7;
 }

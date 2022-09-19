@@ -4,7 +4,6 @@ Using var as loc? (Do later)
 
 All registers used at full size (no point in not)
 
+Better error handling
 
-Todo's for the delta project (not organized, just a list, but with a general idea of what needs to happen sooner)
-
-In a long time, actually do register allocation 
+Compile to Sirq's IL

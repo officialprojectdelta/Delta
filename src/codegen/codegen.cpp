@@ -3,6 +3,7 @@
 #include <sstream>
 #include <array>
 #include <unordered_map>
+#include <optional>
 
 #include "error/error.h"
 
@@ -790,7 +791,8 @@ void cgStmtExp(Node* node, Symtable& symtable, size_t idx = 0)
         
         oprintf("    movl ", firstHalf.str(), ", -", symtable.locals[node->varName].loc, "(%rbp)\n");
     }
-    else 
+    else if (node->kind == NodeKind::NOEXPR) {}
+    else
     {   
         cgExp(node, "a", true, symtable);
     }
@@ -798,7 +800,8 @@ void cgStmtExp(Node* node, Symtable& symtable, size_t idx = 0)
     return;
 }
 
-void cgStmt(Node* node, Symtable& symtable)
+// Last arguments are for break and continue statements
+void cgStmt(Node* node, Symtable& symtable, std::optional<size_t> end, std::optional<size_t> cont)
 {
     switch (node->kind)
     {
@@ -819,7 +822,7 @@ void cgStmt(Node* node, Symtable& symtable)
             size_t s2 = conditionLblCtr;
             conditionLblCtr++;
 
-            cgStmt(&node->forward[1], symtable);
+            cgStmt(&node->forward[1], symtable, end, cont);
 
             // Else statement
             if (node->forward.size() == 3) 
@@ -831,13 +834,129 @@ void cgStmt(Node* node, Symtable& symtable)
 
                 oprintf(".LC", s2, ":\n");
 
-                cgStmt(&node->forward[2], symtable);
+                cgStmt(&node->forward[2], symtable, end, cont);
 
                 oprintf(".LC", end, ":\n");
             }
             else 
             {
                 oprintf(".LC", s2, ":\n");
+            }
+
+            return;
+        }
+        case NodeKind::FOR:
+        {
+            // First part of loop is decl
+            if (node->forward[0].kind == NodeKind::DECL)
+            {
+                if (node->forward.size()) cgStmtExp(&node->forward[0], symtable);
+            }
+            // First part of loop is expression
+            else 
+            {
+                cgStmtExp(&node->forward[0], symtable);
+            }   
+
+            // Lable for evaluating the condition
+            oprintf(".LC", conditionLblCtr, ":\n");
+            size_t condEval = conditionLblCtr;
+            conditionLblCtr++;
+
+            // Evaluate condition, jump to end if false 
+            size_t end = conditionLblCtr;
+            conditionLblCtr++;
+
+            // Use control statement, if it is NULLEXPR print no code
+            if (node->forward[1].kind != NodeKind::NOEXPR)
+            {
+                cgStmtExp(&node->forward[1], symtable);
+
+                oprintf("    cmpl $0, %eax\n");
+                oprintf("    je .LC", end, "\n");
+            } // else creates infinite loop, no code is printed
+
+            size_t cont = conditionLblCtr;
+            conditionLblCtr++;
+
+            // Body of for loop
+            cgStmt(&node->forward[3], symtable, end, cont);
+
+            // Lable for continue is here
+            oprintf(".LC", cont, ":\n");
+
+            cgStmtExp(&node->forward[2], symtable);
+
+            // Go back to top of loop, and end of loop lable
+            oprintf("    jmp .LC", condEval, "\n");
+            oprintf(".LC", end, ":\n");
+
+            return;
+        }   
+        case NodeKind::WHILE:
+        {
+            // Lable for evaluating the condition (start of loop)
+            oprintf(".LC", conditionLblCtr, ":\n");
+            size_t condEval = conditionLblCtr;
+            conditionLblCtr++;
+
+            // Evaluate condition, jump to end if false 
+            size_t end = conditionLblCtr;
+            conditionLblCtr++;
+
+            cgStmtExp(&node->forward[0], symtable);
+
+            oprintf("    cmpl $0, %eax\n");
+            oprintf("    je .LC", end, "\n");
+
+            // Body of while loop
+            cgStmt(&node->forward[1], symtable, end, condEval);
+
+            // Go back to top of loop, and end of loop lable
+            oprintf("    jmp .LC", condEval, "\n");
+            oprintf(".LC", end, ":\n");
+
+            return;
+        }
+        case NodeKind::DO:
+        {
+            // Lable for statement (start of loop)
+            oprintf(".LC", conditionLblCtr, ":\n");
+            size_t top = conditionLblCtr;
+            conditionLblCtr++;
+
+            size_t cont = conditionLblCtr;
+            conditionLblCtr++;
+
+            size_t end = conditionLblCtr;
+            conditionLblCtr++;
+
+            // Body of while loop
+            cgStmt(&node->forward[0], symtable, end, cont);
+
+            cgStmtExp(&node->forward[1], symtable);
+
+            oprintf(".LC", cont, ":\n");
+            oprintf("    cmpl $0, %eax\n");
+            oprintf("    je .LC", top, "\n");
+            oprintf(".LC", end, ":\n");
+
+            return;
+        }
+        case NodeKind::BREAK:
+        {
+            if (end.has_value())
+            {
+                oprintf("    jmp .LC", end.value(), "\n");
+            }
+
+            return;
+        }
+        case NodeKind::CONTINUE:
+        {
+            if (cont.has_value())
+            {
+                oprintf("    jmp .LC", cont.value(), "\n");
             }
 
             return;
@@ -851,7 +970,7 @@ void cgStmt(Node* node, Symtable& symtable)
         {
             for (size_t i = 0; i < node->forward.size(); i++)
             {
-                cgStmt(&node->forward[i], symtable);
+                cgStmt(&node->forward[i], symtable, end, cont);
             }
 
             return;
@@ -881,7 +1000,7 @@ std::string& codegen(Node* node, Symtable& symtable)
     for (size_t i = 0; i < node->forward.size(); i++)
     {
         if (node->forward[i].kind == NodeKind::RETURN) returned = 1;
-        cgStmt(&node->forward[i], symtable);
+        cgStmt(&node->forward[i], symtable, std::nullopt, std::nullopt);
     }
 
     if (!returned)

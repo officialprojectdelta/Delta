@@ -69,7 +69,7 @@ void checkVars(Scope* scope, Symtable& symtable, Node* node)
 // The recursive data is recursively stored, and just contains local var names
 void genScope(Scope* current, Symtable& symtable, Node* node)
 {
-    if (node->kind == NodeKind::FUNCTION || node->kind == NodeKind::BLOCKSTMT)
+    if (node->kind == NodeKind::FUNCTION || node->kind == NodeKind::BLOCKSTMT || node->kind == NodeKind::FOR)
     {
         for (size_t i = 0; i < node->forward.size(); i++)
         {
@@ -101,7 +101,7 @@ void genScope(Scope* current, Symtable& symtable, Node* node)
                     checkVars(current, symtable, &node->forward[i].forward[0]);
                 }
             }
-            else if (node->forward[i].kind == NodeKind::BLOCKSTMT)
+            else if (node->forward[i].kind == NodeKind::BLOCKSTMT || node->forward[i].kind == NodeKind::FOR)
             {
                 scopeCtr++;
                 current->forward.emplace_back(current, scopeCtr);

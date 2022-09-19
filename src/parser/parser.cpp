@@ -84,18 +84,45 @@ Node* parseFunction(Node* current, Tokenizer& tokens)
     // Loop through func (which is a list of statements), if } is found end the loop
     while (true) 
     {
+        tokens.check("Invalid function declaration");
+
+        // Parse blkitem should point to next token 
         if (tokens.cur().type == TokenType::CBRACKET) return current;
 
         // This is evaluated in the parseStatement function
         current->forward.emplace_back(NodeKind::NOKIND, current);
     
         parseBlkitem(&current->forward.back(), tokens);
-
-        // Increment tokens before restarting the loop
-        tokens.inc(); 
-
-        tokens.check("Invalid function declaration");
     }
+}
+
+// Check for declaratio, used in loops and 
+Node* doDecl(Node* current, Tokenizer& tokens)
+{
+    current->kind = NodeKind::DECL;
+    current->type = Type({TypeKind::INT, 4, true, 0});
+    tokens.inc();
+    current->tok = tokens.inc();
+
+    // Check if it is just a declaration or an assignment
+    if (tokens.cur().type == TokenType::ASSIGN)
+    {
+        tokens.inc();
+        current->forward.emplace_back(NodeKind::NOKIND, current);
+        parseExp(&current->forward.back(), tokens, 0);
+    }
+
+    // Make sure a statement ends in a semicolon
+    if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of declaration");
+
+    tokens.inc();
+
+    return current;
+}
+
+bool checkDecl(Tokenizer& tokens)
+{
+    return std::find(types.begin(), types.end(), tokens.cur().type) != types.end();
 }
 
 // Make sure declarations arn't in if statements that don't create a new scope
@@ -103,23 +130,9 @@ Node* parseFunction(Node* current, Tokenizer& tokens)
 Node* parseBlkitem(Node* current, Tokenizer& tokens)
 {
     // Check for declaration
-    if (std::find(types.begin(), types.end(), tokens.cur().type) != types.end())
+    if (checkDecl(tokens))
     {
-        current->kind = NodeKind::DECL;
-        current->type = Type({TypeKind::INT, 4, true, 0});
-        tokens.inc();
-        current->tok = tokens.inc();
-
-        // Check if it is just a declaration or an assignment
-        if (tokens.cur().type == TokenType::ASSIGN)
-        {
-            tokens.inc();
-            current->forward.emplace_back(NodeKind::NOKIND, current);
-            parseExp(&current->forward.back(), tokens, 0);
-            // Make sure a statement ends in a semicolon
-            if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of statement");
-        }
-
+        doDecl(current, tokens);
         return current;
     }
     // Parse as a statement
@@ -145,6 +158,8 @@ Node* parseStatement(Node* current, Tokenizer& tokens)
         // Make sure a return statement ends in a semicolon
         if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of statement");
 
+        tokens.inc();
+
         return current;
     }
     // If statement
@@ -158,8 +173,12 @@ Node* parseStatement(Node* current, Tokenizer& tokens)
         // Get condition expression
         current->forward.emplace_back(NodeKind::NOKIND, current);
         parseExp(&current->forward.back(), tokens, 0);
+        if (current->forward.back().kind == NodeKind::NOEXPR)
+        {
+            throw compiler_error("Expected expression");
+        }
 
-        if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Expected ')' as end of statement");
+        if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Unmatched \'(\'");
         tokens.inc();
 
         // Get statement to execute if condition is true
@@ -177,25 +196,142 @@ Node* parseStatement(Node* current, Tokenizer& tokens)
 
         return current;
     }
+    else if (tokens.cur().type == TokenType::FOR)
+    {
+        current->kind = NodeKind::FOR;
+        tokens.inc();
+        if (tokens.cur().type != TokenType::OPAREN) throw compiler_error("Expected '(' before expr %d", (size_t) tokens.cur().type);
+        tokens.inc();
+
+        if (checkDecl(tokens)) 
+        {
+            current->forward.emplace_back(NodeKind::NOKIND, current);
+            doDecl(&current->forward.back(), tokens);
+            tokens.inc();
+        }
+        else
+        {
+            current->forward.emplace_back(NodeKind::NOKIND, current);
+            parseExp(&current->forward.back(), tokens, 0);
+            if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of expression");
+            tokens.inc();
+        }
+
+        current->forward.emplace_back(NodeKind::NOKIND, current);
+        parseExp(&current->forward.back(), tokens, 0);
+        if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of expression");
+        tokens.inc();
+
+        current->forward.emplace_back(NodeKind::NOKIND, current);
+        parseExp(&current->forward.back(), tokens, 0);
+        if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Unmatched \'(\'");
+        tokens.inc();
+
+        // Get statement to execute if condition is true
+        current->forward.emplace_back(NodeKind::NOKIND, current);
+        parseStatement(&current->forward.back(), tokens);
+
+        return current;
+        
+    }
+    else if (tokens.cur().type == TokenType::WHILE)
+    {   
+        current->kind = NodeKind::WHILE;
+        tokens.inc();
+        if (tokens.cur().type != TokenType::OPAREN) throw compiler_error("Expected '(' before expr %d", (size_t) tokens.cur().type);
+        tokens.inc();
+
+        current->forward.emplace_back(NodeKind::NOKIND, current);
+        parseExp(&current->forward.back(), tokens, 0);
+
+        // Check for errors
+        if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Unmatched \'(\'");
+        if (current->forward.back().kind == NodeKind::NOEXPR) throw compiler_error("Expected expression");
+
+        tokens.inc();
+
+        // Get statement to execute if condition is true
+        current->forward.emplace_back(NodeKind::NOKIND, current);
+        parseStatement(&current->forward.back(), tokens);
+
+        return current;
+    }
+    else if (tokens.cur().type == TokenType::DO)
+    {
+        current->kind = NodeKind::DO;
+        tokens.inc();
+
+        // Get statement to execute if condition is true
+        current->forward.emplace_back(NodeKind::NOKIND, current);
+        parseStatement(&current->forward.back(), tokens);
+
+        // Look for while, if not found error
+        if (tokens.cur().type != TokenType::WHILE) throw compiler_error("Expected 'while' in do/while loop");
+        tokens.inc();
+        if (tokens.cur().type != TokenType::OPAREN) throw compiler_error("Expected '(' before expr %d", (size_t) tokens.cur().type);
+        tokens.inc();
+
+        current->forward.emplace_back(NodeKind::NOKIND, current);
+        parseExp(&current->forward.back(), tokens, 0);
+
+        // Check for errors
+        if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Unmatched \'(\'");
+        if (current->forward.back().kind == NodeKind::NOEXPR) throw compiler_error("Expected expression");
+
+        tokens.inc();
+
+        if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of statement");
+
+        tokens.inc();
+
+        return current;
+    }
+    else if (tokens.cur().type == TokenType::BREAK)
+    {
+        current->kind = NodeKind::BREAK;
+        tokens.inc();
+
+        if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of statement");
+
+        tokens.inc();
+
+        return current;
+    }
+    else if (tokens.cur().type == TokenType::CONTINUE)
+    {
+        current->kind = NodeKind::CONTINUE;
+        tokens.inc();
+
+        if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of statement");
+
+        tokens.inc();
+
+        return current;
+    }
     else if (tokens.cur().type == TokenType::OBRACKET)
     {
         current->kind = NodeKind::BLOCKSTMT;
         tokens.inc();
 
-        while (true)
+        if (tokens.cur().type == TokenType::CBRACKET) return current;
+
+        // Loop through func (which is a list of statements), if } is found end the loop
+        while (true) 
         {
-            if (tokens.cur().type == TokenType::CBRACKET) return current;
+            tokens.check("Invalid block statement");
+
+            // ParseBlk item should point to next token
+            if (tokens.cur().type == TokenType::CBRACKET) break;
 
             // This is evaluated in the parseStatement function
             current->forward.emplace_back(NodeKind::NOKIND, current);
         
             parseBlkitem(&current->forward.back(), tokens);
-
-            // Increment tokens before restarting the loop
-            tokens.inc(); 
-
-            tokens.check("Invalid block statement");
         }
+
+        tokens.inc();
+
+        return current;
     }
     // Is expression (error handling done in parseexp)
     else
@@ -203,6 +339,8 @@ Node* parseStatement(Node* current, Tokenizer& tokens)
         parseExp(current, tokens, 0);
         // Make sure a statement ends in a semicolon
         if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of statement");
+
+        tokens.inc();
     }
 
     return current;
@@ -210,6 +348,12 @@ Node* parseStatement(Node* current, Tokenizer& tokens)
 
 Node* parseExp(Node* current, Tokenizer& tokens, size_t min_prec)
 {   
+    if (tokens.cur().type == TokenType::SEMI)
+    {
+        current->kind = NodeKind::NOEXPR;
+        return current;
+    }
+
     parseAtom(current, tokens);
 
     while (true)

@@ -15,7 +15,11 @@ enum class NodeKind
     BLOCKSTMT,
     IF,
     ELSE,
-    ELIF, // TODO later, more efficient else if statements (only one jump instead of 2)
+    FOR,
+    WHILE,
+    DO,
+    BREAK,
+    CONTINUE,
     ADD, 
     SUB,
     MUL, 
@@ -35,6 +39,7 @@ enum class NodeKind
     NUM, 
     DECL,
     VAR, 
+    NOEXPR,
     NOKIND
 };
 
