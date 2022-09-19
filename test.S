@@ -3,6 +3,7 @@ test:
     pushq %rbp
     movq %rsp, %rbp
     movl $0, -4(%rbp)
+    movl $0, -8(%rbp)
 .LC0:
     movl $1, %eax
     cmpl $0, %eax
@@ -15,12 +16,12 @@ test:
     je .LC2
     jmp .LC1
 .LC2:
-    movl $1, %eax
-    addl -4(%rbp), %eax
-    movl %eax, -4(%rbp)
+    movl -4(%rbp), %eax
+    incl -4(%rbp)
+    movl %eax, -8(%rbp)
     jmp .LC0
 .LC1:
-    movl $7, %eax
+    movl -8(%rbp), %eax
     movq %rbp, %rsp
     popq %rbp
     ret

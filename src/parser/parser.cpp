@@ -10,6 +10,8 @@
 #include "util.h"
 #include "error/error.h"
 
+// FULLY SUPPORT DEC AND INC  
+
 // Precedence map for binary input operations
 std::unordered_map</* Binary operator */ TokenType, std::pair<size_t /* Precedence */, bool /* Left or right */ >> precMap({
     {TokenType::ADD, {5, 0}}, 
@@ -39,6 +41,7 @@ Node* parseBlkitem(Node* current, Tokenizer& tokens);
 Node* parseStatement(Node* current, Tokenizer& tokens);
 Node* parseExp(Node* current, Tokenizer& tokens, size_t min_prec);
 Node* parseAtom(Node* current, Tokenizer& tokens);
+Node* parseBaseAtom(Node* current, Tokenizer& tokens);
 
 Node* parseProgram(Node* current, Tokenizer& tokens)
 {
@@ -186,7 +189,7 @@ Node* parseStatement(Node* current, Tokenizer& tokens)
         parseStatement(&current->forward.back(), tokens);
 
         // Check if next token is else
-        if (tokens.cur(1).type == TokenType::ELSE) 
+        if (tokens.next().type == TokenType::ELSE) 
         { 
             tokens.inc();
             tokens.inc();
@@ -399,6 +402,35 @@ Node* parseExp(Node* current, Tokenizer& tokens, size_t min_prec)
 
 Node* parseAtom(Node* current, Tokenizer& tokens)
 {
+    if (tokens.cur().type == TokenType::IDENT)
+    {
+        switch (tokens.next().type)
+        {
+            case TokenType::INC:
+            {
+                current->kind = NodeKind::POSTFIXINC;
+                current->forward.emplace_back(NodeKind::NOKIND, current);
+                parseBaseAtom(&current->forward.back(), tokens);
+                tokens.inc();
+                return current;
+            }
+            case TokenType::DEC:
+            {
+                current->kind = NodeKind::POSTFIXDEC;
+                current->forward.emplace_back(NodeKind::NOKIND, current);
+                parseBaseAtom(&current->forward.back(), tokens);
+                tokens.inc();
+                return current;
+            }
+        }
+    }
+
+    parseBaseAtom(current, tokens);
+    return current;
+}
+
+Node* parseBaseAtom(Node* current, Tokenizer& tokens)
+{
     if (tokens.cur().type == TokenType::OPAREN) 
     {
         tokens.inc();
@@ -441,7 +473,9 @@ Node* parseAtom(Node* current, Tokenizer& tokens)
         std::unordered_map<TokenType, NodeKind> convert({
             {TokenType::NOT, NodeKind::NOT},
             {TokenType::DASH, NodeKind::NEG},
-            {TokenType::BITCOMPL, NodeKind::BITCOMPL}
+            {TokenType::BITCOMPL, NodeKind::BITCOMPL},
+            {TokenType::INC, NodeKind::PREFIXINC},
+            {TokenType::DEC, NodeKind::PREFIXDEC},
         });
 
         if (!convert.contains(tokens.cur().type)) compiler_error("Couldn't build an atom from: %s", tokens.cur().value.c_str()); 

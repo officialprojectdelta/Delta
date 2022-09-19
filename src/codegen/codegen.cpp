@@ -740,6 +740,49 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             return;
         }
 
+        case NodeKind::POSTFIXINC:
+        {
+            // Make sure lhs is assignable and exists
+            if (node->forward[0].kind != NodeKind::VAR) throw compiler_error("Expr is not assignable");
+
+            oprintf("    movl -", symtable.locals[node->forward[0].varName].loc, "(%rbp), %e", loc, "x\n");
+            oprintf("    incl -", symtable.locals[node->forward[0].varName].loc, "(%rbp)\n");
+            return;
+        }
+
+        case NodeKind::POSTFIXDEC:
+        {
+            // Make sure lhs is assignable and exists
+            if (node->forward[0].kind != NodeKind::VAR) throw compiler_error("Expr is not assignable");
+
+
+            oprintf("    movl -", symtable.locals[node->forward[0].varName].loc, "(%rbp), %e", loc, "x\n");
+            oprintf("    decl -", symtable.locals[node->forward[0].varName].loc, "(%rbp)\n");
+            return;
+        }
+
+        case NodeKind::PREFIXINC:
+        {
+            // Make sure lhs is assignable and exists
+            if (node->forward[0].kind != NodeKind::VAR) throw compiler_error("Expr is not assignable");
+
+            oprintf("    incl -", symtable.locals[node->forward[0].varName].loc, "(%rbp)\n");
+            oprintf("    movl -", symtable.locals[node->forward[0].varName].loc, "(%rbp), %e", loc, "x\n");
+
+            return;
+        }
+
+        case NodeKind::PREFIXDEC:
+        {
+            // Make sure lhs is assignable and exists
+            if (node->forward[0].kind != NodeKind::VAR) throw compiler_error("Expr is not assignable");
+
+            oprintf("    decl -", symtable.locals[node->forward[0].varName].loc, "(%rbp)\n");
+            oprintf("    movl -", symtable.locals[node->forward[0].varName].loc, "(%rbp), %e", loc, "x\n");
+            
+            return;
+        }
+
         case NodeKind::VAR:
         {
             oprintf("    movl -", symtable.locals[node->varName].loc, "(%rbp), %e", loc, "x\n");

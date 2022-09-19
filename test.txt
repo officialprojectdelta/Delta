@@ -1,12 +1,13 @@
 int test()
 {
     int j = 0;
+    int i = 0;
 
     while (1) 
     {
         if (j == 5) break;
-        j = j + 1;
+        i = j++;
     }
 
-    return 7;
+    return i;
 }

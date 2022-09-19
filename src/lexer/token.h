@@ -17,6 +17,8 @@ enum class TokenType
     NOT,
     BITCOMPL,
     DASH,
+    INC,
+    DEC,
     ADD,
     MUL,
     DIV,
@@ -83,9 +85,10 @@ public:
 
     Token& operator[](size_t idx) { return tokens.at(idx); }
     
-    Token& cur() { return tokens.at(pos); };
-    Token& cur(size_t idx) { return tokens.at(pos + idx); }
-    Token& inc() { pos++; return tokens.at(pos - 1); }
+    Token cur() { return tokens.at(pos); };
+    Token cur(size_t idx) { return tokens.at(pos + idx); }
+    Token inc() { pos++; return tokens.at(pos - 1); }
+    Token next() { if (pos + 1 >= tokens.size()) return Token(TokenType::NULLTOK); return tokens.at(pos + 1); }
     size_t size() { return tokens.size(); }
     void check(const std::string& str) { if (pos >= tokens.size()) throw compiler_error(str); }
 };

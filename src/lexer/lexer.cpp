@@ -26,6 +26,8 @@ std::unordered_map<std::string, Token> map({
     {"~", Token(TokenType::BITCOMPL)}, 
     {"-", Token(TokenType::DASH)}, 
     {"+", Token(TokenType::ADD)}, 
+    {"++", Token(TokenType::INC)},
+    {"--", Token(TokenType::DEC)}, 
     {"*", Token(TokenType::MUL)}, 
     {"/", Token(TokenType::DIV)}, 
     {"&&", Token(TokenType::AND)}, 
