@@ -4,6 +4,7 @@
 #include <array>
 #include <unordered_map>
 #include <optional>
+#include <algorithm>
 
 #include "error/error.h"
 
@@ -40,6 +41,34 @@ void cgfEpilogue()
     oprintf("    movq %rbp, %rsp\n");
     oprintf("    popq %rbp\n");
 }
+
+std::string varLoc(Node* node, Symtable& symtable)
+{
+    std::stringstream varLoc;
+    if (node->loc == Location::LOCAL)
+    {
+        varLoc << "-" << symtable.locals[node->varName].loc << "(%rbp)";
+        return varLoc.str();
+    }
+    else 
+    {
+        for (auto arg : symtable.globals[node->fnName].args)
+        {
+            if (arg.name == node->varName) 
+            {
+                varLoc << arg.loc << "(%rbp)";
+                return varLoc.str();
+            }
+        }
+
+        throw compiler_error("Thats bad");
+    }
+}
+
+// Forward decls
+void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable);
+void cgStmtExp(Node* node, Symtable& symtable, size_t idx = 0);
+void cgStmt(Node* node, Symtable& symtable, std::optional<size_t> end, std::optional<size_t> cont);
 
 void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 {
@@ -101,7 +130,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[0].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
+                op << varLoc(&node->forward[0], symtable);
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -114,7 +143,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 }
                 else if (node->forward[1].kind == NodeKind::VAR)
                 {
-                    op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
+                    op << varLoc(&node->forward[1], symtable);
                 }
                 else 
                 {
@@ -149,7 +178,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[1].kind == NodeKind::VAR)
             {
-                oprintf("    subl -", symtable.locals[node->forward[1].varName].loc, "(%rbp), %e", loc, "x\n");
+                oprintf("    subl ", varLoc(&node->forward[1], symtable), ", %e", loc, "x\n");
                 return;
             }
 
@@ -191,7 +220,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[0].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
+                op << varLoc(&node->forward[0], symtable);
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -204,7 +233,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 }
                 else if (node->forward[1].kind == NodeKind::VAR)
                 {
-                    op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
+                    op << varLoc(&node->forward[1], symtable);
                 }
                 else 
                 {
@@ -234,7 +263,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
 
             if (node->forward[1].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
+                op << varLoc(&node->forward[1], symtable);
             }
             else
             {
@@ -276,7 +305,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[0].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
+                op << varLoc(&node->forward[0], symtable);
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -289,7 +318,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 }
                 else if (node->forward[1].kind == NodeKind::VAR)
                 {
-                    op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
+                    op << varLoc(&node->forward[1], symtable);
                 }
                 else 
                 {
@@ -329,7 +358,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[0].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
+                op << varLoc(&node->forward[0], symtable);
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -342,7 +371,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 }
                 else if (node->forward[1].kind == NodeKind::VAR)
                 {
-                    op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
+                    op << varLoc(&node->forward[1], symtable);
                 }
                 else 
                 {
@@ -382,7 +411,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[0].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
+                op << varLoc(&node->forward[0], symtable);
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -396,7 +425,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 }
                 else if (node->forward[1].kind == NodeKind::VAR)
                 {
-                    op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
+                    op << varLoc(&node->forward[1], symtable);
                     num = 1;
                 }
                 else 
@@ -446,7 +475,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[0].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
+                op << varLoc(&node->forward[0], symtable);
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -460,7 +489,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 }
                 else if (node->forward[1].kind == NodeKind::VAR)
                 {
-                    op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
+                    op << varLoc(&node->forward[1], symtable);
                     num = 1;
                 }
                 else 
@@ -510,7 +539,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[0].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
+                op << varLoc(&node->forward[0], symtable);
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -524,7 +553,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 }
                 else if (node->forward[1].kind == NodeKind::VAR)
                 {
-                    op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
+                    op << varLoc(&node->forward[1], symtable);
                     num = 1;
                 }
                 else 
@@ -574,7 +603,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[0].kind == NodeKind::VAR)
             {
-                op << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
+                op << varLoc(&node->forward[0], symtable);
                 cgExp(&node->forward[1], loc, true, symtable);
             }
             else 
@@ -588,7 +617,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 }
                 else if (node->forward[1].kind == NodeKind::VAR)
                 {
-                    op << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
+                    op << varLoc(&node->forward[1], symtable);
                     num = 1;
                 }
                 else 
@@ -628,7 +657,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             std::stringstream op1;
             if (node->forward[0].kind == NodeKind::VAR)
             {
-                op1 << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
+                op1 << varLoc(&node->forward[0], symtable);
             }
             else
             {
@@ -652,7 +681,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             std::stringstream op2;
             if (node->forward[1].kind == NodeKind::VAR)
             {
-                op2 << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
+                op2 << varLoc(&node->forward[1], symtable);
             }
             else
             {
@@ -677,7 +706,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             std::stringstream op1;
             if (node->forward[0].kind == NodeKind::VAR)
             {
-                op1 << "-" << symtable.locals[node->forward[0].varName].loc << "(%rbp)";
+                op1 << varLoc(&node->forward[1], symtable);
             }
             else
             {
@@ -694,7 +723,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             std::stringstream op2;
             if (node->forward[1].kind == NodeKind::VAR)
             {
-                op2 << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
+                op2 << varLoc(&node->forward[1], symtable);
             }
             else
             {
@@ -727,7 +756,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             else if (node->forward[1].kind == NodeKind::VAR)
             {
-                firstHalf << "-" << symtable.locals[node->forward[1].varName].loc << "(%rbp)";
+                firstHalf << varLoc(&node->forward[0], symtable);
             }
             else 
             {
@@ -735,7 +764,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 firstHalf << "%e" << loc << "x";
             }
 
-            oprintf("    movl ", firstHalf.str(), ", -", symtable.locals[node->forward[0].varName].loc, "(%rbp)\n");
+            oprintf("    movl ", firstHalf.str(), ", ", varLoc(&node->forward[0], symtable), "\n");
 
             return;
         }
@@ -745,8 +774,8 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             // Make sure lhs is assignable and exists
             if (node->forward[0].kind != NodeKind::VAR) throw compiler_error("Expr is not assignable");
 
-            oprintf("    movl -", symtable.locals[node->forward[0].varName].loc, "(%rbp), %e", loc, "x\n");
-            oprintf("    incl -", symtable.locals[node->forward[0].varName].loc, "(%rbp)\n");
+            oprintf("    movl ",  varLoc(&node->forward[0], symtable), ", %e", loc, "x\n");
+            oprintf("    incl ",  varLoc(&node->forward[0], symtable), "\n");        
             return;
         }
 
@@ -755,9 +784,8 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             // Make sure lhs is assignable and exists
             if (node->forward[0].kind != NodeKind::VAR) throw compiler_error("Expr is not assignable");
 
-
-            oprintf("    movl -", symtable.locals[node->forward[0].varName].loc, "(%rbp), %e", loc, "x\n");
-            oprintf("    decl -", symtable.locals[node->forward[0].varName].loc, "(%rbp)\n");
+            oprintf("    movl ",  varLoc(&node->forward[0], symtable), ", %e", loc, "x\n");
+            oprintf("    decl ",  varLoc(&node->forward[0], symtable), "\n");        
             return;
         }
 
@@ -766,9 +794,8 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             // Make sure lhs is assignable and exists
             if (node->forward[0].kind != NodeKind::VAR) throw compiler_error("Expr is not assignable");
 
-            oprintf("    incl -", symtable.locals[node->forward[0].varName].loc, "(%rbp)\n");
-            oprintf("    movl -", symtable.locals[node->forward[0].varName].loc, "(%rbp), %e", loc, "x\n");
-
+            oprintf("    incl ",  varLoc(&node->forward[0], symtable), "\n");
+            oprintf("    movl ",  varLoc(&node->forward[0], symtable), ", %e", loc, "x\n");
             return;
         }
 
@@ -777,16 +804,32 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             // Make sure lhs is assignable and exists
             if (node->forward[0].kind != NodeKind::VAR) throw compiler_error("Expr is not assignable");
 
-            oprintf("    decl -", symtable.locals[node->forward[0].varName].loc, "(%rbp)\n");
-            oprintf("    movl -", symtable.locals[node->forward[0].varName].loc, "(%rbp), %e", loc, "x\n");
-            
+            oprintf("    decl ",  varLoc(&node->forward[0], symtable), "\n");
+            oprintf("    movl ",  varLoc(&node->forward[0], symtable), ", %e", loc, "x\n");
+
             return;
         }
 
         case NodeKind::VAR:
         {
-            oprintf("    movl -", symtable.locals[node->varName].loc, "(%rbp), %e", loc, "x\n");
+            oprintf("    movl ",  varLoc(node, symtable), ", %e", loc, "x\n");
 
+            return;
+        }
+
+        case NodeKind::FUNCALL:
+        {
+            for (size_t i = node->forward.size(); i > 0; i--)
+            {
+                cgStmtExp(&node->forward[i - 1], symtable);
+
+                oprintf("    pushq %rax\n");
+            }
+
+            // Function call
+            oprintf("    call ", node->tok.value, "\n");
+
+            if (node->forward.size()) oprintf("    add $", 8 * node->forward.size(), ", %rsp\n");
             return;
         }
 
@@ -797,7 +840,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
     }
 }
 
-void cgStmtExp(Node* node, Symtable& symtable, size_t idx = 0)
+void cgStmtExp(Node* node, Symtable& symtable, size_t idx)
 {
     // The final location that the expression will boil down to
     // For return statements, it is rax/eax
@@ -824,7 +867,7 @@ void cgStmtExp(Node* node, Symtable& symtable, size_t idx = 0)
         }
         else if (node->forward[idx].kind == NodeKind::VAR)
         {
-            firstHalf << "-" << symtable.locals[node->forward[idx].varName].loc << "(%rbp)\n";
+            firstHalf << varLoc(&node->forward[0], symtable);
         }
         else 
         {
@@ -832,7 +875,7 @@ void cgStmtExp(Node* node, Symtable& symtable, size_t idx = 0)
             firstHalf << "%eax";
         }
         
-        oprintf("    movl ", firstHalf.str(), ", -", symtable.locals[node->varName].loc, "(%rbp)\n");
+        oprintf("    movl ", firstHalf.str(), ", ", varLoc(node, symtable), "\n");
     }
     else if (node->kind == NodeKind::NOEXPR) {}
     else
@@ -1021,6 +1064,7 @@ void cgStmt(Node* node, Symtable& symtable, std::optional<size_t> end, std::opti
         default:
         {
             cgStmtExp(node, symtable);
+            return;
         }
     }
 }
@@ -1029,28 +1073,35 @@ std::string& codegen(Node* node, Symtable& symtable)
 {
     if (node->kind != NodeKind::PRGRM) throw std::runtime_error("Invalid parser");
 
-    node = &node->forward[0];
-
-    if (node->kind != NodeKind::FUNCTION) throw std::runtime_error("Expected a definition");
-
-    oprintf(".globl ", node->tok.value, "\n");
-    oprintf(node->tok.value, ":\n");
-
-    cgfPrologue();
-
-    bool returned = 0;
-
     for (size_t i = 0; i < node->forward.size(); i++)
     {
-        if (node->forward[i].kind == NodeKind::RETURN) returned = 1;
-        cgStmt(&node->forward[i], symtable, std::nullopt, std::nullopt);
-    }
+        if (node->forward[i].kind != NodeKind::FUNCTION) throw std::runtime_error("Expected a definition");
+        if (node->forward[i].forward.back().kind == NodeKind::ARG) continue;
+        
+        oprintf(".globl ", node->forward[i].tok.value, "\n");
+        oprintf(node->forward[i].tok.value, ":\n");
 
-    if (!returned)
-    {
-        oprintf("    movl $0, %eax\n");
-        cgfEpilogue();
-        oprintf("    ret\n");
+        cgfPrologue();
+
+        bool returned = 0;
+
+        for (size_t j = 0; j < node->forward[i].forward.size(); j++)
+        {
+            if (node->forward[i].forward[j].kind != NodeKind::ARG)
+            {
+                if (node->forward[i].forward[j].kind == NodeKind::RETURN) returned = 1;
+                cgStmt(&node->forward[i].forward[j], symtable, std::nullopt, std::nullopt);            
+            }
+        }
+
+        if (!returned)
+        {
+            oprintf("    movl $0, %eax\n");
+            cgfEpilogue();
+            oprintf("    ret\n");
+        }
+
+        oprintf("\n");
     }
 
     return output;

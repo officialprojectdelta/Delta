@@ -14,6 +14,7 @@ enum class TokenType
     OPAREN,
     CPAREN,
     SEMI,
+    COMMA,
     NOT,
     BITCOMPL,
     DASH,
@@ -90,6 +91,7 @@ public:
     Token inc() { pos++; return tokens.at(pos - 1); }
     Token next() { if (pos + 1 >= tokens.size()) return Token(TokenType::NULLTOK); return tokens.at(pos + 1); }
     size_t size() { return tokens.size(); }
+    size_t getPos() { return pos; }
     void check(const std::string& str) { if (pos >= tokens.size()) throw compiler_error(str); }
 };
 

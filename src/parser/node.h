@@ -11,6 +11,8 @@ enum class NodeKind
 {   
     PRGRM, 
     FUNCTION, 
+    FUNCALL,
+    ARG,
     RETURN,
     BLOCKSTMT,
     IF,
@@ -47,6 +49,11 @@ enum class NodeKind
     NOKIND
 };
 
+enum class Location
+{
+    LOCAL, GLOBAL, FUNCTION
+};
+
 // The Node struct
 // Holds data for a parser node
 
@@ -56,7 +63,10 @@ struct Node
     
     Type type;
     Token tok;
+    
     std::string varName; // Used as the variable name in finding it's location in the varmap
+    std::string fnName; // Used if variable is in a function, or name of function for function call
+    Location loc; // If var is local, function argument, or global
 
     std::vector<Node> forward; // The nodes that this node points to. Amount depends on NodeKind
 

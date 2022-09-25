@@ -22,6 +22,7 @@ std::unordered_map<std::string, Token> map({
     {"(", Token(TokenType::OPAREN)}, 
     {")", Token(TokenType::CPAREN)}, 
     {";", Token(TokenType::SEMI)}, 
+    {",", Token(TokenType::COMMA)}, 
     {"!", Token(TokenType::NOT)}, 
     {"~", Token(TokenType::BITCOMPL)}, 
     {"-", Token(TokenType::DASH)}, 

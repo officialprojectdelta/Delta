@@ -47,10 +47,13 @@ Node* parseProgram(Node* current, Tokenizer& tokens)
 {
     current->kind = NodeKind::PRGRM;
 
-    // A program node will create a function subnode
-    current->forward.emplace_back(NodeKind::FUNCTION, current);
-    
-    parseFunction(&current->forward.back(), tokens);
+    while (tokens.getPos() < tokens.size())
+    {
+        // A program node will create a function subnode
+        current->forward.emplace_back(NodeKind::FUNCTION, current);
+        parseFunction(&current->forward.back(), tokens);
+        tokens.inc();
+    }
 
     return current;
 }
@@ -79,8 +82,40 @@ Node* parseFunction(Node* current, Tokenizer& tokens)
 
     if (tokens.cur().type != TokenType::OPAREN) throw compiler_error("Invalid function declaration");
     tokens.inc();
-    if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Invalid function declaration");
-    tokens.inc();
+
+    if (tokens.cur().type == TokenType::CPAREN) tokens.inc();
+    else
+    {
+        while (true)
+        {
+            if (tokens.cur().type != TokenType::TINT) throw compiler_error("Expected type of argument");
+            current->forward.emplace_back(NodeKind::ARG, current);
+
+            current->forward.back().type.typeKind = TypeKind::INT;
+            current->forward.back().type.sizeofNode = 4;
+            current->forward.back().type.issigned = true;
+            current->forward.back().type.ptrCount = 0;
+
+            tokens.inc();
+
+            if (tokens.cur().type != TokenType::IDENT) throw compiler_error("Expected identifier as argument");
+            current->forward.back().tok = tokens.cur();
+
+            tokens.inc();
+
+            if (tokens.cur().type == TokenType::CPAREN)
+            {
+                tokens.inc();
+                break;
+            } 
+
+            if (tokens.cur().type != TokenType::COMMA) throw compiler_error("Expected seperator before next argument");
+            tokens.inc();
+        }
+    }
+
+    if (tokens.cur().type == TokenType::SEMI) return current;
+
     if (tokens.cur().type != TokenType::OBRACKET) throw compiler_error("Invalid function declaration");
     tokens.inc();
 
@@ -97,6 +132,8 @@ Node* parseFunction(Node* current, Tokenizer& tokens)
     
         parseBlkitem(&current->forward.back(), tokens);
     }
+
+    return current;
 }
 
 // Check for declaratio, used in loops and 
@@ -419,6 +456,34 @@ Node* parseAtom(Node* current, Tokenizer& tokens)
                 current->kind = NodeKind::POSTFIXDEC;
                 current->forward.emplace_back(NodeKind::NOKIND, current);
                 parseBaseAtom(&current->forward.back(), tokens);
+                tokens.inc();
+                return current;
+            }
+            case TokenType::OPAREN:
+            {
+                // Parse function
+                // Subnodes are args
+
+                current->kind = NodeKind::FUNCALL;
+                current->tok = tokens.cur();
+                
+                tokens.inc();
+                tokens.inc();
+
+                while (true)
+                {
+                    current->forward.emplace_back(NodeKind::NOKIND, current);
+                    parseExp(&current->forward.back(), tokens, 0);
+
+                    if (tokens.cur().type == TokenType::CPAREN)
+                    {
+                        break;
+                    }
+
+                    if (tokens.cur().type != TokenType::COMMA) throw compiler_error("Expected comma before next argument");
+                    tokens.inc();
+                }
+
                 tokens.inc();
                 return current;
             }

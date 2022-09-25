@@ -18,7 +18,7 @@ int main(int argc, char** argv)
         Node* node = parse(tokens);
 
         Symtable table = genEntries(node);        
-
+        
         writeFile(argv[2], codegen(node, table));
     }
     catch (compiler_error& e)

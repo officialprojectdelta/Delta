@@ -15,4 +15,7 @@ struct Type
     size_t sizeofNode;
     bool issigned; 
     size_t ptrCount;
-}; 
+
+    bool operator==(const Type& type) const { return this->typeKind == type.typeKind && this->sizeofNode == type.sizeofNode && this->issigned == type.issigned && this->ptrCount == type.ptrCount; }
+    bool operator!=(const Type& type) const { return !(this->typeKind == type.typeKind && this->sizeofNode == type.sizeofNode && this->issigned == type.issigned && this->ptrCount == type.ptrCount); }
+};

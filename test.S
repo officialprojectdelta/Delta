@@ -1,3 +1,13 @@
+.globl foo
+foo:
+    pushq %rbp
+    movq %rsp, %rbp
+    movl $3, 24(%rbp)
+    movl 16(%rbp), %eax
+    movq %rbp, %rsp
+    popq %rbp
+    ret
+
 .globl test
 test:
     pushq %rbp
@@ -21,7 +31,13 @@ test:
     movl %eax, -8(%rbp)
     jmp .LC0
 .LC1:
-    movl -8(%rbp), %eax
+    movl $4, %eax
+    pushq %rax
+    movl $1, %eax
+    pushq %rax
+    call foo
+    add $16, %rsp
     movq %rbp, %rsp
     popq %rbp
     ret
+

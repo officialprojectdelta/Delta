@@ -38,10 +38,35 @@ struct localInfo
     size_t loc;
 };
 
+enum class SKind
+{
+    FUNCTION,
+    GLOBAL,
+    STRUCT,
+};
+
+struct arg 
+{
+    std::string name;
+    Type type;
+    size_t loc;
+};
+
+struct globalInfo
+{
+    SKind kind;
+    Type type;
+    bool define;
+
+    // Function only
+    std::vector<arg> args;
+    std::string fnName;
+};
+
 // The symbol table, containing the globals and the locals
 struct Symtable
 {
-    std::unordered_map<std::string, Type> globals;
+    std::unordered_map<std::string, globalInfo> globals;
     std::unordered_map<std::string, localInfo> locals;
 };
 
