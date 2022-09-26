@@ -1076,7 +1076,7 @@ std::string& codegen(Node* node, Symtable& symtable)
     for (size_t i = 0; i < node->forward.size(); i++)
     {
         if (node->forward[i].kind != NodeKind::FUNCTION) throw std::runtime_error("Expected a definition");
-        if (node->forward[i].forward.back().kind == NodeKind::ARG) continue;
+        if (node->forward[i].forward.size() && node->forward[i].forward.back().kind == NodeKind::ARG) continue;
         
         oprintf(".globl ", node->forward[i].tok.value, "\n");
         oprintf(node->forward[i].tok.value, ":\n");
@@ -1087,7 +1087,7 @@ std::string& codegen(Node* node, Symtable& symtable)
 
         for (size_t j = 0; j < node->forward[i].forward.size(); j++)
         {
-            if (node->forward[i].forward[j].kind != NodeKind::ARG)
+            if (node->forward[i].forward.size() && node->forward[i].forward[j].kind != NodeKind::ARG)
             {
                 if (node->forward[i].forward[j].kind == NodeKind::RETURN) returned = 1;
                 cgStmt(&node->forward[i].forward[j], symtable, std::nullopt, std::nullopt);            

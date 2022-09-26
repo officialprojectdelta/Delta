@@ -1,19 +1,5 @@
-int foo(int bar, int foo)
-{
-    foo = 3;
-    return bar;
-}
-
 int test()
 {
-    int j = 0;
-    int i = 0;
-
-    while (1) 
-    {
-        if (j == 5) break;
-        i = j++;
-    }
-
-    return foo(1, 4);
+    if (3 == 3) return 4;
+    else return 2;
 }

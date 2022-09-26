@@ -1,4 +1,5 @@
 #include <iostream>
+#include <chrono>
 
 #include "lexer/lexer.h"
 #include "parser/parser.h"
@@ -13,13 +14,12 @@ int main(int argc, char** argv)
 {
     try
     {
+        auto startTm = std::chrono::high_resolution_clock::now();
         auto tokens = scan(readFile(argv[1]));
-
         Node* node = parse(tokens);
-
-        Symtable table = genEntries(node);        
-        
+        Symtable table = genEntries(node);    
         writeFile(argv[2], codegen(node, table));
+        std::cout << "Elapsed Time: " << (std::chrono::high_resolution_clock::now() - startTm).count() << "ns" << std::endl;
     }
     catch (compiler_error& e)
     {

@@ -69,7 +69,7 @@ Node* parseFunction(Node* current, Tokenizer& tokens)
     }
     else
     {        
-        throw compiler_error("Unknown type name: %s", tokens.cur().value.c_str());
+        throw compiler_error("Unknown type name: %ull", (size_t) tokens.next().type);
     }
 
     tokens.inc();
@@ -119,6 +119,8 @@ Node* parseFunction(Node* current, Tokenizer& tokens)
     if (tokens.cur().type != TokenType::OBRACKET) throw compiler_error("Invalid function declaration");
     tokens.inc();
 
+    current->forward.emplace_back(NodeKind::BLOCKSTMT, current);
+
     // Loop through func (which is a list of statements), if } is found end the loop
     while (true) 
     {
@@ -128,9 +130,9 @@ Node* parseFunction(Node* current, Tokenizer& tokens)
         if (tokens.cur().type == TokenType::CBRACKET) return current;
 
         // This is evaluated in the parseStatement function
-        current->forward.emplace_back(NodeKind::NOKIND, current);
+        current->forward.back().forward.emplace_back(NodeKind::NOKIND, current);
     
-        parseBlkitem(&current->forward.back(), tokens);
+        parseBlkitem(&current->forward.back().forward.back(), tokens);
     }
 
     return current;
@@ -152,11 +154,6 @@ Node* doDecl(Node* current, Tokenizer& tokens)
         parseExp(&current->forward.back(), tokens, 0);
     }
 
-    // Make sure a statement ends in a semicolon
-    if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of declaration");
-
-    tokens.inc();
-
     return current;
 }
 
@@ -173,6 +170,8 @@ Node* parseBlkitem(Node* current, Tokenizer& tokens)
     if (checkDecl(tokens))
     {
         doDecl(current, tokens);
+        if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of declaration");
+        tokens.inc();
         return current;
     }
     // Parse as a statement
@@ -218,7 +217,7 @@ Node* parseStatement(Node* current, Tokenizer& tokens)
             throw compiler_error("Expected expression");
         }
 
-        if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Unmatched \'(\'");
+        if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Unmatched ass \'(\'");
         tokens.inc();
 
         // Get statement to execute if condition is true
@@ -226,9 +225,8 @@ Node* parseStatement(Node* current, Tokenizer& tokens)
         parseStatement(&current->forward.back(), tokens);
 
         // Check if next token is else
-        if (tokens.next().type == TokenType::ELSE) 
+        if (tokens.cur().type == TokenType::ELSE) 
         { 
-            tokens.inc();
             tokens.inc();
             current->forward.emplace_back(NodeKind::NOKIND, current);
             parseStatement(&current->forward.back(), tokens);
@@ -247,6 +245,7 @@ Node* parseStatement(Node* current, Tokenizer& tokens)
         {
             current->forward.emplace_back(NodeKind::NOKIND, current);
             doDecl(&current->forward.back(), tokens);
+            if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of expression");
             tokens.inc();
         }
         else
@@ -262,10 +261,18 @@ Node* parseStatement(Node* current, Tokenizer& tokens)
         if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of expression");
         tokens.inc();
 
-        current->forward.emplace_back(NodeKind::NOKIND, current);
-        parseExp(&current->forward.back(), tokens, 0);
-        if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Unmatched \'(\'");
-        tokens.inc();
+        if (tokens.cur().type != TokenType::CPAREN)
+        {
+            current->forward.emplace_back(NodeKind::NOKIND, current);
+            parseExp(&current->forward.back(), tokens, 0);
+            if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Unmatched \'(\'");
+            tokens.inc();
+        }
+        else
+        {
+            current->forward.emplace_back(NodeKind::NOEXPR, current);
+            tokens.inc();
+        }
 
         // Get statement to execute if condition is true
         current->forward.emplace_back(NodeKind::NOKIND, current);
@@ -398,7 +405,10 @@ Node* parseExp(Node* current, Tokenizer& tokens, size_t min_prec)
 
     while (true)
     {
-        if (!precMap.contains(tokens.cur().type) || precMap[tokens.cur().type].first < min_prec) break;
+        if (!precMap.contains(tokens.cur().type) || precMap[tokens.cur().type].first < min_prec) 
+        {
+            break;
+        }
 
         std::unordered_map<TokenType, NodeKind> convert({
             {TokenType::ADD, NodeKind::ADD},
@@ -470,15 +480,12 @@ Node* parseAtom(Node* current, Tokenizer& tokens)
                 tokens.inc();
                 tokens.inc();
 
-                while (true)
+                while (tokens.cur().type != TokenType::CPAREN)
                 {
                     current->forward.emplace_back(NodeKind::NOKIND, current);
                     parseExp(&current->forward.back(), tokens, 0);
 
-                    if (tokens.cur().type == TokenType::CPAREN)
-                    {
-                        break;
-                    }
+                    if (tokens.cur().type == TokenType::CPAREN) break;
 
                     if (tokens.cur().type != TokenType::COMMA) throw compiler_error("Expected comma before next argument");
                     tokens.inc();

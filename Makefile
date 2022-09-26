@@ -2,10 +2,12 @@ TARGET_EXEC = Compiler
 CC = clang++
 
 SRC = $(wildcard src/*.cpp) $(wildcard src/**/*.cpp) $(wildcard src/**/**/*.cpp) $(wildcard src/**/**/**/*.cpp)
+TEST = $(wildcard test/tests/*.c)
+TESTOBJ = $(TEST:.c=.S)
 OBJ = $(SRC:.cpp=.o)
 ASM = $(SRC:.cpp=.S)
 BIN = bin
-TEST = test
+TESTDIR = test
 
 INC_DIR_SRC = -Isrc
 INC_DIR_LIB =
@@ -47,17 +49,28 @@ asm: cleanassembly $(ASM)
 	@echo 'Finished building: $<'
 	@echo ' '
 
+%.S: %.c 
+	./$(BIN)/$(TARGET_EXEC) $< $@
+
 build: dirs link
 
 run:
 	./$(BIN)/$(TARGET_EXEC) test.txt test.S
 
-test:
-	./$(BIN)/$(TARGET_EXEC) test.txt test.S
-	$(CC) -o $(TEST)/test.o -c test.S 
-	clang -o $(TEST)/main.o -c $(TEST)/main.c 
-	$(CC) -o $(TEST)/test $(TEST)/main.o $(TEST)/test.o 
-	./$(TEST)/test
+dltest:
+	rm -rf $(TESTOBJ)
+
+test: all
+	$(CC) -std=c++17 -o $(TESTDIR)/testbuild $(TESTDIR)/tmain.cpp
+	./$(TESTDIR)/testbuild
+
+test1: run testasm	
+
+testasm:
+	$(CC) -o $(TESTDIR)/test.o -c test.S 
+	clang -o $(TESTDIR)/main.o -c $(TESTDIR)/main.c 
+	$(CC) -o $(TESTDIR)/test $(TESTDIR)/main.o $(TESTDIR)/test.o 
+	./$(TESTDIR)/test
 
 clean:
 	clear

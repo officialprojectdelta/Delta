@@ -12,8 +12,8 @@
 
 // Constants used to see if a string fits within a group
 #define DIGITS "0123456789"
-#define ALPHABET "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-#define ALPHANUMERIC "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+#define ALPHABET "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
+#define ALPHANUMERIC "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
 
 // Lexer character map (so that it is easier to tokenize characters)
 std::unordered_map<std::string, Token> map({
@@ -56,9 +56,6 @@ std::unordered_map<std::string, Token> map({
 // The lexer function, which takes in a string (the data to be scanned)
 Tokenizer scan(std::string data)
 {
-    data = removeChar('\n', data);
-    data = removeChar('\r', data);
-    
     // A array of tokens, the output
     std::vector<Token> tokens;
 
@@ -66,7 +63,7 @@ Tokenizer scan(std::string data)
     for (size_t i = 0; i < data.size(); )
     {
         // Skip on whitespace
-        if (data[i] == ' ') 
+        if (data[i] == ' ' || data[i] == '\n' || data[i] == '\r') 
         {
             i++; continue;
         }
