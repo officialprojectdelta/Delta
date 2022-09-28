@@ -42,6 +42,8 @@ Node* parseStatement(Node* current, Tokenizer& tokens);
 Node* parseExp(Node* current, Tokenizer& tokens, size_t min_prec);
 Node* parseAtom(Node* current, Tokenizer& tokens);
 Node* parseBaseAtom(Node* current, Tokenizer& tokens);
+Node* doDecl(Node* current, Tokenizer& tokens);
+
 
 Node* parseProgram(Node* current, Tokenizer& tokens)
 {
@@ -49,10 +51,21 @@ Node* parseProgram(Node* current, Tokenizer& tokens)
 
     while (tokens.getPos() < tokens.size())
     {
-        // A program node will create a function subnode
-        current->forward.emplace_back(NodeKind::FUNCTION, current);
-        parseFunction(&current->forward.back(), tokens);
-        tokens.inc();
+        if (tokens.cur(2).type == TokenType::OPAREN)
+        {
+            // A program node will create a function subnode
+            current->forward.emplace_back(NodeKind::FUNCTION, current);
+            parseFunction(&current->forward.back(), tokens);
+            tokens.inc();
+        }
+        else 
+        {
+            // Is declaration
+            current->forward.emplace_back(NodeKind::FUNCTION, current);
+            doDecl(&current->forward.back(), tokens);
+            if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of declaration");
+            tokens.inc();
+        }
     }
 
     return current;
@@ -138,7 +151,7 @@ Node* parseFunction(Node* current, Tokenizer& tokens)
     return current;
 }
 
-// Check for declaratio, used in loops and 
+// Check for declaration, used for blkitems, global scope, and loops
 Node* doDecl(Node* current, Tokenizer& tokens)
 {
     current->kind = NodeKind::DECL;

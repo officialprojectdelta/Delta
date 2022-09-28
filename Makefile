@@ -55,7 +55,7 @@ asm: cleanassembly $(ASM)
 build: dirs link
 
 run:
-	./$(BIN)/$(TARGET_EXEC) test.txt test.S
+	./$(BIN)/$(TARGET_EXEC) test.c test.S
 
 dltest:
 	rm -rf $(TESTOBJ)

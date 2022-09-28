@@ -8,38 +8,42 @@
 
 #include "error/error.h"
 
+static std::string text;
+static std::string bss;
+static std::string data;
 static std::string output;
+
 static size_t conditionLblCtr = 0;
 
 template <typename Ty>
-void oprintf(Ty arg1)
+void oprintf(std::string* write, Ty arg1)
 {
     std::stringstream str;
     str << arg1;
-    output.append(str.str());
+    write->append(str.str());
     return;
 }
 
 template <typename Ty, typename... types>
-void oprintf(Ty arg1, types... args)
+void oprintf(std::string* write, Ty arg1, types... args)
 {
     std::stringstream str;
     str << arg1;
-    output.append(str.str());
-    oprintf(args...);
+    write->append(str.str());
+    oprintf(write, args...);
     return;
 }
 
 void cgfPrologue()
 {
-    oprintf("    pushq %rbp\n");
-    oprintf("    movq %rsp, %rbp\n");
+    oprintf(&text, "    pushq %rbp\n");
+    oprintf(&text, "    movq %rsp, %rbp\n");
 }
 
 void cgfEpilogue()
 {
-    oprintf("    movq %rbp, %rsp\n");
-    oprintf("    popq %rbp\n");
+    oprintf(&text, "    movq %rbp, %rsp\n");
+    oprintf(&text, "    popq %rbp\n");
 }
 
 std::string varLoc(Node* node, Symtable& symtable)
@@ -50,7 +54,7 @@ std::string varLoc(Node* node, Symtable& symtable)
         varLoc << "-" << symtable.locals[node->varName].loc << "(%rbp)";
         return varLoc.str();
     }
-    else 
+    else if (node->fnName != "")
     {
         for (auto arg : symtable.globals[node->fnName].args)
         {
@@ -62,6 +66,11 @@ std::string varLoc(Node* node, Symtable& symtable)
         }
 
         throw compiler_error("Thats bad");
+    }
+    else 
+    {
+        varLoc << node->varName << "(%rip)";
+        return varLoc.str();
     }
 }
 
@@ -79,9 +88,9 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             cgExp(&node->forward[0], loc, true, symtable);
             
             // Memory support is later
-            oprintf("    cmp $0, %e", loc, "x\n");
-            oprintf("    mov $0, %e", loc, "x\n");
-            oprintf("    sete %", loc, "l\n");
+            oprintf(&text, "    cmp $0, %e", loc, "x\n");
+            oprintf(&text, "    mov $0, %e", loc, "x\n");
+            oprintf(&text, "    sete %", loc, "l\n");
 
             return;
         }
@@ -91,7 +100,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             cgExp(&node->forward[0], loc, true, symtable);
 
             // Memory support is later
-            oprintf("    neg %e", loc, "x\n");
+            oprintf(&text, "    neg %e", loc, "x\n");
 
             return;
         }
@@ -101,7 +110,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             cgExp(&node->forward[0], loc, true, symtable);
 
             // Memory support is later
-            oprintf("    not %e", loc, "x\n");
+            oprintf(&text, "    not %e", loc, "x\n");
 
             return;
         }
@@ -109,7 +118,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
         case NodeKind::NUM:
         {
             // Memory support is later, as well as default numbers (putting them directly into instructions)
-            oprintf("    movl $", node->tok.value, ", %e", loc, "x\n");
+            oprintf(&text, "    movl $", node->tok.value, ", %e", loc, "x\n");
 
             return;
         }
@@ -148,18 +157,18 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 else 
                 {
                     // Push onto stack cause im to lazy to figure out register allocation
-                    oprintf("    push %r", loc, "x\n");
+                    oprintf(&text, "    push %r", loc, "x\n");
                     cgExp(&node->forward[1], loc, true, symtable);
 
                     // Pop from stack into %ecx
-                    oprintf("   pop %r", l2, "x\n");
-                    oprintf("   addl %e", l2, "x, %e", loc, "x\n");
+                    oprintf(&text, "   pop %r", l2, "x\n");
+                    oprintf(&text, "   addl %e", l2, "x, %e", loc, "x\n");
 
                     return;
                 }
             }
 
-            oprintf("    addl ", op.str(), ", %e", loc, "x\n");
+            oprintf(&text, "    addl ", op.str(), ", %e", loc, "x\n");
 
             return;
         }
@@ -173,32 +182,32 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             // Because of operand ordering
             if (node->forward[1].kind == NodeKind::NUM)
             {
-                oprintf("    subl $", node->forward[1].tok.value, ", %e", loc, "x\n");
+                oprintf(&text, "    subl $", node->forward[1].tok.value, ", %e", loc, "x\n");
                 return;
             }
             else if (node->forward[1].kind == NodeKind::VAR)
             {
-                oprintf("    subl ", varLoc(&node->forward[1], symtable), ", %e", loc, "x\n");
+                oprintf(&text, "    subl ", varLoc(&node->forward[1], symtable), ", %e", loc, "x\n");
                 return;
             }
 
             // Else run like normal
 
             // Push onto stack cause im to lazy to figure out register allocation
-            oprintf("    push %r", loc, "x\n");
+            oprintf(&text, "    push %r", loc, "x\n");
 
             cgExp(&node->forward[1], "c", true, symtable);
 
             // Do subtract instruction on %eax, %ecx
-            oprintf("    pop %rax\n");
+            oprintf(&text, "    pop %rax\n");
 
             if (loc == "a") 
             {
-                oprintf("    subl %ecx, %e", loc, "x\n");
+                oprintf(&text, "    subl %ecx, %e", loc, "x\n");
             }
             else
             {
-                oprintf("    subl %eax, %e", loc, "x\n");
+                oprintf(&text, "    subl %eax, %e", loc, "x\n");
             }  
 
             return;
@@ -238,18 +247,18 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 else 
                 {
                     // Push onto stack cause im to lazy to figure out register allocation
-                    oprintf("    push %r", loc, "x\n");
+                    oprintf(&text, "    push %r", loc, "x\n");
                     cgExp(&node->forward[1], loc, true, symtable);
 
                     // Pop from stack into %ecx
-                    oprintf("   pop %r", l2, "x\n");
-                    oprintf("   imul %e", l2, "x, %e", loc, "x\n");
+                    oprintf(&text, "   pop %r", l2, "x\n");
+                    oprintf(&text, "   imul %e", l2, "x, %e", loc, "x\n");
 
                     return;
                 }
             }
 
-            oprintf("    imul ", op.str(), ", %e", loc, "x\n");
+            oprintf(&text, "    imul ", op.str(), ", %e", loc, "x\n");
 
             return;
         }
@@ -268,23 +277,23 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             else
             {
                 // Push onto stack cause im to lazy to figure out register allocation
-                oprintf("    push %r", loc, "x\n");
+                oprintf(&text, "    push %r", loc, "x\n");
 
                 cgExp(&node->forward[1], "c", true, symtable);
 
                 // Pop from stack into %eax
-                oprintf("    pop %rax\n");
+                oprintf(&text, "    pop %rax\n");
 
                 op << "%ecx";
             }
             
             // Sign extend %eax into %edx
-            oprintf("    cdq\n");
+            oprintf(&text, "    cdq\n");
 
             // Do division instruction on %eax, %ecx
-            oprintf("    idivl ", op.str(), "\n");
+            oprintf(&text, "    idivl ", op.str(), "\n");
 
-            if (loc != "a") oprintf("   movl %eax, %e", loc, "x\n");
+            if (loc != "a") oprintf(&text, "   movl %eax, %e", loc, "x\n");
 
             return;  
         }
@@ -323,21 +332,21 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 else 
                 {
                     // Push onto stack cause im to lazy to figure out register allocation
-                    oprintf("    push %r", loc, "x\n");
+                    oprintf(&text, "    push %r", loc, "x\n");
                     cgExp(&node->forward[1], loc, true, symtable);
 
                     // Pop from stack into %ecx
-                    oprintf("    pop %r", l2, "x\n");
-                    oprintf("    cmpl %eax, %ecx\n");
-                    oprintf("    mov $0, %e", loc, "x\n");
-                    oprintf("    sete %", loc, "l\n");
+                    oprintf(&text, "    pop %r", l2, "x\n");
+                    oprintf(&text, "    cmpl %eax, %ecx\n");
+                    oprintf(&text, "    mov $0, %e", loc, "x\n");
+                    oprintf(&text, "    sete %", loc, "l\n");
                     return;
                 }
             }
 
-            oprintf("    cmpl ", op.str(), ", %e", loc, "x\n");
-            oprintf("    mov $0, %e", loc, "x\n");
-            oprintf("    sete %", loc, "l\n");
+            oprintf(&text, "    cmpl ", op.str(), ", %e", loc, "x\n");
+            oprintf(&text, "    mov $0, %e", loc, "x\n");
+            oprintf(&text, "    sete %", loc, "l\n");
 
             return;
         }
@@ -376,21 +385,21 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 else 
                 {
                     // Push onto stack cause im to lazy to figure out register allocation
-                    oprintf("    push %r", loc, "x\n");
+                    oprintf(&text, "    push %r", loc, "x\n");
                     cgExp(&node->forward[1], loc, true, symtable);
 
                     // Pop from stack into %ecx
-                    oprintf("    pop %r", l2, "x\n");
-                    oprintf("    cmpl %eax, %ecx\n");
-                    oprintf("    mov $0, %e", loc, "x\n");
-                    oprintf("    setne %", loc, "l\n");
+                    oprintf(&text, "    pop %r", l2, "x\n");
+                    oprintf(&text, "    cmpl %eax, %ecx\n");
+                    oprintf(&text, "    mov $0, %e", loc, "x\n");
+                    oprintf(&text, "    setne %", loc, "l\n");
                     return;
                 }
             }
 
-            oprintf("    cmpl ", op.str(), ", %e", loc, "x\n");
-            oprintf("    mov $0, %e", loc, "x\n");
-            oprintf("    setne %", loc, "l\n");
+            oprintf(&text, "    cmpl ", op.str(), ", %e", loc, "x\n");
+            oprintf(&text, "    mov $0, %e", loc, "x\n");
+            oprintf(&text, "    setne %", loc, "l\n");
 
             return;
         }
@@ -431,29 +440,29 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 else 
                 {
                     // Push onto stack cause im to lazy to figure out register allocation
-                    oprintf("    push %r", loc, "x\n");
+                    oprintf(&text, "    push %r", loc, "x\n");
                     cgExp(&node->forward[1], loc, true, symtable);
 
                     // Pop from stack into %ecx
-                    oprintf("    pop %r", l2, "x\n");
-                    oprintf("    cmpl %e", loc, "x, %e", l2, "x\n");
-                    oprintf("    mov $0, %e", loc, "x\n");
-                    oprintf("    setl %", loc, "l\n");
+                    oprintf(&text, "    pop %r", l2, "x\n");
+                    oprintf(&text, "    cmpl %e", loc, "x, %e", l2, "x\n");
+                    oprintf(&text, "    mov $0, %e", loc, "x\n");
+                    oprintf(&text, "    setl %", loc, "l\n");
                     return;
                 }
             }
  
-            oprintf("    cmpl ", op.str(), ", %e", loc, "x\n");
-            oprintf("    mov $0, %e", loc, "x\n");
+            oprintf(&text, "    cmpl ", op.str(), ", %e", loc, "x\n");
+            oprintf(&text, "    mov $0, %e", loc, "x\n");
 
             // Hack because of stupid operand order
             if (num) 
             {
-                oprintf("    setl %", loc, "l\n");
+                oprintf(&text, "    setl %", loc, "l\n");
             }
             else
             {
-                oprintf("    setg %", loc, "l\n");
+                oprintf(&text, "    setg %", loc, "l\n");
             }
 
             return; 
@@ -495,29 +504,29 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 else 
                 {
                     // Push onto stack cause im to lazy to figure out register allocation
-                    oprintf("    push %r", loc, "x\n");
+                    oprintf(&text, "    push %r", loc, "x\n");
                     cgExp(&node->forward[1], loc, true, symtable);
 
                     // Pop from stack into %ecx
-                    oprintf("    pop %r", l2, "x\n");
-                    oprintf("    cmpl %e", loc, "x, %e", l2, "x\n");
-                    oprintf("    mov $0, %e", loc, "x\n");
-                    oprintf("    setle %", loc, "l\n");
+                    oprintf(&text, "    pop %r", l2, "x\n");
+                    oprintf(&text, "    cmpl %e", loc, "x, %e", l2, "x\n");
+                    oprintf(&text, "    mov $0, %e", loc, "x\n");
+                    oprintf(&text, "    setle %", loc, "l\n");
                     return;
                 }
             }
  
-            oprintf("    cmpl ", op.str(), ", %e", loc, "x\n");
-            oprintf("    mov $0, %e", loc, "x\n");
+            oprintf(&text, "    cmpl ", op.str(), ", %e", loc, "x\n");
+            oprintf(&text, "    mov $0, %e", loc, "x\n");
 
             // Hack because of stupid operand order
             if (num) 
             {
-                oprintf("    setle %", loc, "l\n");
+                oprintf(&text, "    setle %", loc, "l\n");
             }
             else
             {
-                oprintf("    setge %", loc, "l\n");
+                oprintf(&text, "    setge %", loc, "l\n");
             }
 
             return; 
@@ -559,29 +568,29 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 else 
                 {
                     // Push onto stack cause im to lazy to figure out register allocation
-                    oprintf("    push %r", loc, "x\n");
+                    oprintf(&text, "    push %r", loc, "x\n");
                     cgExp(&node->forward[1], loc, true, symtable);
 
                     // Pop from stack into %ecx
-                    oprintf("    pop %r", l2, "x\n");
-                    oprintf("    cmpl %e", loc, "x, %e", l2, "x\n");
-                    oprintf("    mov $0, %e", loc, "x\n");
-                    oprintf("    setg %", loc, "l\n");
+                    oprintf(&text, "    pop %r", l2, "x\n");
+                    oprintf(&text, "    cmpl %e", loc, "x, %e", l2, "x\n");
+                    oprintf(&text, "    mov $0, %e", loc, "x\n");
+                    oprintf(&text, "    setg %", loc, "l\n");
                     return;
                 }
             }
  
-            oprintf("    cmpl ", op.str(), ", %e", loc, "x\n");
-            oprintf("    mov $0, %e", loc, "x\n");
+            oprintf(&text, "    cmpl ", op.str(), ", %e", loc, "x\n");
+            oprintf(&text, "    mov $0, %e", loc, "x\n");
 
             // Hack because of stupid operand order
             if (num) 
             {
-                oprintf("    setg %", loc, "l\n");
+                oprintf(&text, "    setg %", loc, "l\n");
             }
             else
             {
-                oprintf("    setl %", loc, "l\n");
+                oprintf(&text, "    setl %", loc, "l\n");
             }
 
             return; 
@@ -623,29 +632,29 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 else 
                 {
                     // Push onto stack cause im to lazy to figure out register allocation
-                    oprintf("    push %r", loc, "x\n");
+                    oprintf(&text, "    push %r", loc, "x\n");
                     cgExp(&node->forward[1], loc, true, symtable);
 
                     // Pop from stack into %ecx
-                    oprintf("    pop %r", l2, "x\n");
-                    oprintf("    cmpl %e", loc, "x, %e", l2, "x\n");
-                    oprintf("    mov $0, %e", loc, "x\n");
-                    oprintf("    setge %", loc, "l\n");
+                    oprintf(&text, "    pop %r", l2, "x\n");
+                    oprintf(&text, "    cmpl %e", loc, "x, %e", l2, "x\n");
+                    oprintf(&text, "    mov $0, %e", loc, "x\n");
+                    oprintf(&text, "    setge %", loc, "l\n");
                     return;
                 }
             }
  
-            oprintf("    cmpl ", op.str(), ", %e", loc, "x\n");
-            oprintf("    mov $0, %e", loc, "x\n");
+            oprintf(&text, "    cmpl ", op.str(), ", %e", loc, "x\n");
+            oprintf(&text, "    mov $0, %e", loc, "x\n");
 
             // Hack because of stupid operand order
             if (num) 
             {
-                oprintf("    setge %", loc, "l\n");
+                oprintf(&text, "    setge %", loc, "l\n");
             }
             else
             {
-                oprintf("    setle %", loc, "l\n");
+                oprintf(&text, "    setle %", loc, "l\n");
             }
 
             return; 
@@ -665,17 +674,17 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 op1 << "%e" << loc << "x";
             }
 
-            oprintf("    cmpl $0, ", op1.str(), "\n");
-            oprintf("    je .LC", conditionLblCtr, "\n");
+            oprintf(&text, "    cmpl $0, ", op1.str(), "\n");
+            oprintf(&text, "    je .LC", conditionLblCtr, "\n");
             size_t c2 = conditionLblCtr;
             conditionLblCtr++;
-            oprintf("    mov $1, %e", loc, "x\n");
-            oprintf("    jmp .LC", conditionLblCtr, "\n");
+            oprintf(&text, "    mov $1, %e", loc, "x\n");
+            oprintf(&text, "    jmp .LC", conditionLblCtr, "\n");
             size_t end = conditionLblCtr;
             conditionLblCtr++;
 
             // C2 lable (evaluate both exprs)
-            oprintf(".LC", c2, ":\n");
+            oprintf(&text, ".LC", c2, ":\n");
 
             // Check other side of operation if first side doesn't provide enough info
             std::stringstream op2;
@@ -690,12 +699,12 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             
             // Set value
-            oprintf("    cmpl $0, ", op2.str(), "\n");
-            oprintf("    movl $0, %e", loc, "x\n");
-            oprintf("    setne %", loc, "l\n");
+            oprintf(&text, "    cmpl $0, ", op2.str(), "\n");
+            oprintf(&text, "    movl $0, %e", loc, "x\n");
+            oprintf(&text, "    setne %", loc, "l\n");
 
             // The lable that, if the upper statement evaluates as true, will jump too
-            oprintf(".LC", end, ":\n");
+            oprintf(&text, ".LC", end, ":\n");
 
             return; 
         }
@@ -714,8 +723,8 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 op1 << "%e" << loc << "x";
             }
 
-            oprintf("    cmpl $0, ", op1.str(), "\n");
-            oprintf("    je .LC", conditionLblCtr, "\n");
+            oprintf(&text, "    cmpl $0, ", op1.str(), "\n");
+            oprintf(&text, "    je .LC", conditionLblCtr, "\n");
             size_t end = conditionLblCtr;
             conditionLblCtr++;
             
@@ -732,12 +741,12 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             }
             
             // Set value
-            oprintf("    cmpl $0, ", op2.str(), "\n");
-            oprintf("    movl $0, %e", loc, "x\n");
-            oprintf("    setne %", loc, "l\n");
+            oprintf(&text, "    cmpl $0, ", op2.str(), "\n");
+            oprintf(&text, "    movl $0, %e", loc, "x\n");
+            oprintf(&text, "    setne %", loc, "l\n");
 
             // The lable that, if the upper statement evaluates as true, will jump too
-            oprintf(".LC", end, ":\n");
+            oprintf(&text, ".LC", end, ":\n");
 
             return; 
         }
@@ -764,7 +773,7 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
                 firstHalf << "%e" << loc << "x";
             }
 
-            oprintf("    movl ", firstHalf.str(), ", ", varLoc(&node->forward[0], symtable), "\n");
+            oprintf(&text, "    movl ", firstHalf.str(), ", ", varLoc(&node->forward[0], symtable), "\n");
 
             return;
         }
@@ -774,8 +783,8 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             // Make sure lhs is assignable and exists
             if (node->forward[0].kind != NodeKind::VAR) throw compiler_error("Expr is not assignable");
 
-            oprintf("    movl ",  varLoc(&node->forward[0], symtable), ", %e", loc, "x\n");
-            oprintf("    incl ",  varLoc(&node->forward[0], symtable), "\n");        
+            oprintf(&text, "    movl ",  varLoc(&node->forward[0], symtable), ", %e", loc, "x\n");
+            oprintf(&text, "    incl ",  varLoc(&node->forward[0], symtable), "\n");        
             return;
         }
 
@@ -784,8 +793,8 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             // Make sure lhs is assignable and exists
             if (node->forward[0].kind != NodeKind::VAR) throw compiler_error("Expr is not assignable");
 
-            oprintf("    movl ",  varLoc(&node->forward[0], symtable), ", %e", loc, "x\n");
-            oprintf("    decl ",  varLoc(&node->forward[0], symtable), "\n");        
+            oprintf(&text, "    movl ",  varLoc(&node->forward[0], symtable), ", %e", loc, "x\n");
+            oprintf(&text, "    decl ",  varLoc(&node->forward[0], symtable), "\n");        
             return;
         }
 
@@ -794,8 +803,8 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             // Make sure lhs is assignable and exists
             if (node->forward[0].kind != NodeKind::VAR) throw compiler_error("Expr is not assignable");
 
-            oprintf("    incl ",  varLoc(&node->forward[0], symtable), "\n");
-            oprintf("    movl ",  varLoc(&node->forward[0], symtable), ", %e", loc, "x\n");
+            oprintf(&text, "    incl ",  varLoc(&node->forward[0], symtable), "\n");
+            oprintf(&text, "    movl ",  varLoc(&node->forward[0], symtable), ", %e", loc, "x\n");
             return;
         }
 
@@ -804,15 +813,15 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             // Make sure lhs is assignable and exists
             if (node->forward[0].kind != NodeKind::VAR) throw compiler_error("Expr is not assignable");
 
-            oprintf("    decl ",  varLoc(&node->forward[0], symtable), "\n");
-            oprintf("    movl ",  varLoc(&node->forward[0], symtable), ", %e", loc, "x\n");
+            oprintf(&text, "    decl ",  varLoc(&node->forward[0], symtable), "\n");
+            oprintf(&text, "    movl ",  varLoc(&node->forward[0], symtable), ", %e", loc, "x\n");
 
             return;
         }
 
         case NodeKind::VAR:
         {
-            oprintf("    movl ",  varLoc(node, symtable), ", %e", loc, "x\n");
+            oprintf(&text, "    movl ",  varLoc(node, symtable), ", %e", loc, "x\n");
 
             return;
         }
@@ -823,13 +832,13 @@ void cgExp(Node* node, const std::string& loc, bool reg, Symtable& symtable)
             {
                 cgStmtExp(&node->forward[i - 1], symtable);
 
-                oprintf("    pushq %rax\n");
+                oprintf(&text, "    pushq %rax\n");
             }
 
             // Function call
-            oprintf("    call ", node->tok.value, "\n");
+            oprintf(&text, "    call ", node->tok.value, "\n");
 
-            if (node->forward.size()) oprintf("    add $", 8 * node->forward.size(), ", %rsp\n");
+            if (node->forward.size()) oprintf(&text, "    add $", 8 * node->forward.size(), ", %rsp\n");
             return;
         }
 
@@ -875,7 +884,7 @@ void cgStmtExp(Node* node, Symtable& symtable, size_t idx)
             firstHalf << "%eax";
         }
         
-        oprintf("    movl ", firstHalf.str(), ", ", varLoc(node, symtable), "\n");
+        oprintf(&text, "    movl ", firstHalf.str(), ", ", varLoc(node, symtable), "\n");
     }
     else if (node->kind == NodeKind::NOEXPR) {}
     else
@@ -895,15 +904,15 @@ void cgStmt(Node* node, Symtable& symtable, std::optional<size_t> end, std::opti
         {
             cgStmtExp(node, symtable);
             cgfEpilogue();
-            oprintf("    ret\n");
+            oprintf(&text, "    ret\n");
             return;
         }
         case NodeKind::IF:
         {
             cgStmtExp(node, symtable);
 
-            oprintf("    cmpl $0, %eax\n");
-            oprintf("    je .LC", conditionLblCtr, "\n");
+            oprintf(&text, "    cmpl $0, %eax\n");
+            oprintf(&text, "    je .LC", conditionLblCtr, "\n");
 
             size_t s2 = conditionLblCtr;
             conditionLblCtr++;
@@ -913,20 +922,20 @@ void cgStmt(Node* node, Symtable& symtable, std::optional<size_t> end, std::opti
             // Else statement
             if (node->forward.size() == 3) 
             {
-                oprintf("    jmp .LC", conditionLblCtr, "\n");
+                oprintf(&text, "    jmp .LC", conditionLblCtr, "\n");
 
                 size_t end = conditionLblCtr;
                 conditionLblCtr++;
 
-                oprintf(".LC", s2, ":\n");
+                oprintf(&text, ".LC", s2, ":\n");
 
                 cgStmt(&node->forward[2], symtable, end, cont);
 
-                oprintf(".LC", end, ":\n");
+                oprintf(&text, ".LC", end, ":\n");
             }
             else 
             {
-                oprintf(".LC", s2, ":\n");
+                oprintf(&text, ".LC", s2, ":\n");
             }
 
             return;
@@ -945,7 +954,7 @@ void cgStmt(Node* node, Symtable& symtable, std::optional<size_t> end, std::opti
             }   
 
             // Lable for evaluating the condition
-            oprintf(".LC", conditionLblCtr, ":\n");
+            oprintf(&text, ".LC", conditionLblCtr, ":\n");
             size_t condEval = conditionLblCtr;
             conditionLblCtr++;
 
@@ -958,8 +967,8 @@ void cgStmt(Node* node, Symtable& symtable, std::optional<size_t> end, std::opti
             {
                 cgStmtExp(&node->forward[1], symtable);
 
-                oprintf("    cmpl $0, %eax\n");
-                oprintf("    je .LC", end, "\n");
+                oprintf(&text, "    cmpl $0, %eax\n");
+                oprintf(&text, "    je .LC", end, "\n");
             } // else creates infinite loop, no code is printed
 
             size_t cont = conditionLblCtr;
@@ -969,20 +978,20 @@ void cgStmt(Node* node, Symtable& symtable, std::optional<size_t> end, std::opti
             cgStmt(&node->forward[3], symtable, end, cont);
 
             // Lable for continue is here
-            oprintf(".LC", cont, ":\n");
+            oprintf(&text, ".LC", cont, ":\n");
 
             cgStmtExp(&node->forward[2], symtable);
 
             // Go back to top of loop, and end of loop lable
-            oprintf("    jmp .LC", condEval, "\n");
-            oprintf(".LC", end, ":\n");
+            oprintf(&text, "    jmp .LC", condEval, "\n");
+            oprintf(&text, ".LC", end, ":\n");
 
             return;
         }   
         case NodeKind::WHILE:
         {
             // Lable for evaluating the condition (start of loop)
-            oprintf(".LC", conditionLblCtr, ":\n");
+            oprintf(&text, ".LC", conditionLblCtr, ":\n");
             size_t condEval = conditionLblCtr;
             conditionLblCtr++;
 
@@ -992,22 +1001,22 @@ void cgStmt(Node* node, Symtable& symtable, std::optional<size_t> end, std::opti
 
             cgStmtExp(&node->forward[0], symtable);
 
-            oprintf("    cmpl $0, %eax\n");
-            oprintf("    je .LC", end, "\n");
+            oprintf(&text, "    cmpl $0, %eax\n");
+            oprintf(&text, "    je .LC", end, "\n");
 
             // Body of while loop
             cgStmt(&node->forward[1], symtable, end, condEval);
 
             // Go back to top of loop, and end of loop lable
-            oprintf("    jmp .LC", condEval, "\n");
-            oprintf(".LC", end, ":\n");
+            oprintf(&text, "    jmp .LC", condEval, "\n");
+            oprintf(&text, ".LC", end, ":\n");
 
             return;
         }
         case NodeKind::DO:
         {
             // Lable for statement (start of loop)
-            oprintf(".LC", conditionLblCtr, ":\n");
+            oprintf(&text, ".LC", conditionLblCtr, ":\n");
             size_t top = conditionLblCtr;
             conditionLblCtr++;
 
@@ -1022,10 +1031,10 @@ void cgStmt(Node* node, Symtable& symtable, std::optional<size_t> end, std::opti
 
             cgStmtExp(&node->forward[1], symtable);
 
-            oprintf(".LC", cont, ":\n");
-            oprintf("    cmpl $0, %eax\n");
-            oprintf("    je .LC", top, "\n");
-            oprintf(".LC", end, ":\n");
+            oprintf(&text, ".LC", cont, ":\n");
+            oprintf(&text, "    cmpl $0, %eax\n");
+            oprintf(&text, "    je .LC", top, "\n");
+            oprintf(&text, ".LC", end, ":\n");
 
             return;
         }
@@ -1033,7 +1042,7 @@ void cgStmt(Node* node, Symtable& symtable, std::optional<size_t> end, std::opti
         {
             if (end.has_value())
             {
-                oprintf("    jmp .LC", end.value(), "\n");
+                oprintf(&text, "    jmp .LC", end.value(), "\n");
             }
 
             return;
@@ -1042,7 +1051,7 @@ void cgStmt(Node* node, Symtable& symtable, std::optional<size_t> end, std::opti
         {
             if (cont.has_value())
             {
-                oprintf("    jmp .LC", cont.value(), "\n");
+                oprintf(&text, "    jmp .LC", cont.value(), "\n");
             }
 
             return;
@@ -1075,34 +1084,86 @@ std::string& codegen(Node* node, Symtable& symtable)
 
     for (size_t i = 0; i < node->forward.size(); i++)
     {
-        if (node->forward[i].kind != NodeKind::FUNCTION) throw std::runtime_error("Expected a definition");
-        if (node->forward[i].forward.size() && node->forward[i].forward.back().kind == NodeKind::ARG) continue;
-        
-        oprintf(".globl ", node->forward[i].tok.value, "\n");
-        oprintf(node->forward[i].tok.value, ":\n");
-
-        cgfPrologue();
-
-        bool returned = 0;
-
-        for (size_t j = 0; j < node->forward[i].forward.size(); j++)
+        if (node->forward[i].kind == NodeKind::FUNCTION) 
         {
-            if (node->forward[i].forward.size() && node->forward[i].forward[j].kind != NodeKind::ARG)
+            if (node->forward[i].forward.size() && node->forward[i].forward.back().kind == NodeKind::ARG) continue;
+            
+            oprintf(&text, ".globl ", node->forward[i].tok.value, "\n");
+            oprintf(&text, node->forward[i].tok.value, ":\n");
+
+            cgfPrologue();
+
+            bool returned = 0;
+
+            for (size_t j = 0; j < node->forward[i].forward.size(); j++)
             {
-                if (node->forward[i].forward[j].kind == NodeKind::RETURN) returned = 1;
-                cgStmt(&node->forward[i].forward[j], symtable, std::nullopt, std::nullopt);            
+                if (node->forward[i].forward.size() && node->forward[i].forward[j].kind != NodeKind::ARG)
+                {
+                    if (node->forward[i].forward[j].kind == NodeKind::RETURN) returned = 1;
+                    cgStmt(&node->forward[i].forward[j], symtable, std::nullopt, std::nullopt);            
+                }
+            }
+
+            if (!returned)
+            {
+                oprintf(&text, "    movl $0, %eax\n");
+                cgfEpilogue();
+                oprintf(&text, "    ret\n");
+            }
+
+            oprintf(&text, "\n");
+        } 
+        else if (node->forward[i].kind == NodeKind::DECL)
+        {
+            // Check if it has an initalizer
+            // If it does, make sure that it is a constant
+            // If the constant is zero skip to it doesn't have an initalizer
+            // else the constant is nonzero put it in data section
+            // If it isn't a constant error
+            // Else put it in bss
+
+            if (node->forward[i].forward.size()) 
+            {
+                if (node->forward[i].forward[0].kind == NodeKind::NUM)
+                {
+                    if (node->forward[i].forward[0].tok.value == "0")
+                    {
+                        oprintf(&bss, ".globl ", node->forward[i].varName, "\n");
+                        oprintf(&bss, node->forward[i].varName, ":\n");
+                        oprintf(&bss, "    .zero 8\n\n");
+                    }
+                    else
+                    {
+                        oprintf(&data, ".globl ", node->forward[i].varName, "\n");
+                        oprintf(&data, node->forward[i].varName, ":\n");
+                        oprintf(&data, "    .quad ", node->forward[i].forward[0].tok.value, "\n\n");
+                    }
+                }
+                else throw compiler_error("Expected a constant as global variable initializer");
+            }
+            else 
+            {
+                oprintf(&bss, ".globl ", node->forward[i].varName, "\n");
+                oprintf(&bss, node->forward[i].varName, ":\n");
+                oprintf(&bss, "    .zero 8\n\n");
             }
         }
-
-        if (!returned)
+        else 
         {
-            oprintf("    movl $0, %eax\n");
-            cgfEpilogue();
-            oprintf("    ret\n");
+            throw compiler_error("Expected a valid global scope statement");
         }
-
-        oprintf("\n");
     }
+
+    oprintf(&output, ".text\n");
+    oprintf(&output, text);
+
+    oprintf(&output, ".align 8\n");
+    oprintf(&output, ".bss\n");
+    oprintf(&output, bss);
+
+    oprintf(&output, ".align 8\n");
+    oprintf(&output, ".data\n");
+    oprintf(&output, data);
 
     return output;
 }

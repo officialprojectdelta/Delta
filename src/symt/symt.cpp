@@ -42,12 +42,15 @@ void checkVars(Scope* scope, Symtable& symtable, Node* node, globalInfo fnArgs)
                 // Once globals are added, check for them
                 // Check function varibles, then globals
 
+                std::stringstream str;
+
                 bool found = 0;
                 for (auto arg : fnArgs.args)
                 {
                     if (arg.name == node->tok.value)
                     {
                         node->fnName = fnArgs.fnName;
+                        // node->fnName.append("fun");
                         node->loc = Location::FUNCTION;
                         node->varName = node->tok.value;
                         found = 1;
@@ -56,6 +59,17 @@ void checkVars(Scope* scope, Symtable& symtable, Node* node, globalInfo fnArgs)
                 }
                 
                 if (found) break;
+                
+                str.str(std::string());
+
+                str << node->tok.value << "glb";
+
+                if (symtable.globals.contains(str.str()) && symtable.globals[str.str()].kind == SKind::GLOBAL)
+                {
+                    node->varName = str.str();
+                    node->loc = Location::GLOBAL;
+                    break;
+                }
 
                 throw compiler_error("Variable '%s' has not been declared", node->tok.value.c_str());
             }
@@ -275,6 +289,19 @@ Symtable genEntries(Node* node)
         if (node->forward[i].kind == NodeKind::FUNCTION)
         {
             genFn(symtable, &node->forward[i]);
+        }
+        else if (node->forward[i].kind == NodeKind::DECL)
+        {
+            // Add to globals
+            // Subnode isn't checked because it cannot contain variables anyways (feature added later?)]
+
+            std::stringstream varNm;
+            varNm << node->forward[i].tok.value << "glb";
+
+            if (symtable.globals.contains(varNm.str())) throw compiler_error("Variable %s already declared", node->forward[i].tok.value.c_str());
+
+            symtable.globals.insert({varNm.str(), {SKind::GLOBAL, node->forward[i].type}});
+            node->forward[i].varName = varNm.str();
         }
         else throw compiler_error("%d is not a valid global entry", (int) node->forward[i].kind);
     }

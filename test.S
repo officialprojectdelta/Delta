@@ -1,11 +1,9 @@
-.globl main
-main:
+.text
+.globl foo
+foo:
     pushq %rbp
     movq %rsp, %rbp
-    movl $0, -4(%rbp)
-    movl $3, -8(%rbp)
-    movl -4(%rbp), -4(%rbp)
-    movl -4(%rbp), %eax
+    movl $3, %eax
     movq %rbp, %rsp
     popq %rbp
     ret
@@ -13,4 +11,25 @@ main:
     movq %rbp, %rsp
     popq %rbp
     ret
+
+.globl test
+test:
+    pushq %rbp
+    movq %rsp, %rbp
+    call foo
+    movq %rbp, %rsp
+    popq %rbp
+    ret
+    movl $0, %eax
+    movq %rbp, %rsp
+    popq %rbp
+    ret
+
+.align 8
+.bss
+.align 8
+.data
+.globl fooglb
+fooglb:
+    .quad 4
 
