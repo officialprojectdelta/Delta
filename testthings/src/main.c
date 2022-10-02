@@ -1,8 +1,10 @@
 #include <stdio.h>
 
-int foo(int, int);
+int test() {
+    int x = '8';
+}
 
 int main(void)
 {
-    break;
+    printf("%d", test());
 }

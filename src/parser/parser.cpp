@@ -9,8 +9,7 @@
 
 #include "util.h"
 #include "error/error.h"
-
-// FULLY SUPPORT DEC AND INC  
+#include "type.h"
 
 // Precedence map for binary input operations
 std::unordered_map</* Binary operator */ TokenType, std::pair<size_t /* Precedence */, bool /* Left or right */ >> precMap({
@@ -18,6 +17,7 @@ std::unordered_map</* Binary operator */ TokenType, std::pair<size_t /* Preceden
     {TokenType::DASH, {5, 0}},
     {TokenType::MUL, {6, 0}},
     {TokenType::DIV, {6, 0}},
+    {TokenType::MOD, {6, 0}}, 
     {TokenType::AND, {2, 0}},
     {TokenType::OR, {1, 0}},
     {TokenType::EQ, {3, 0}},
@@ -29,11 +29,6 @@ std::unordered_map</* Binary operator */ TokenType, std::pair<size_t /* Preceden
     {TokenType::ASSIGN, {0, 1}},
 });
 
-// List of types (only contains int for now)
-std::array<TokenType, 1> types({
-    TokenType::TINT
-});
-
 // Function definitions not all are needed, but they are all here (some are needed)
 Node* parseProgram(Node* current, Tokenizer& tokens);
 Node* parseFunction(Node* current, Tokenizer& tokens);
@@ -43,7 +38,7 @@ Node* parseExp(Node* current, Tokenizer& tokens, size_t min_prec);
 Node* parseAtom(Node* current, Tokenizer& tokens);
 Node* parseBaseAtom(Node* current, Tokenizer& tokens);
 Node* doDecl(Node* current, Tokenizer& tokens);
-
+bool checkType(Tokenizer& tokens);
 
 Node* parseProgram(Node* current, Tokenizer& tokens)
 {
@@ -61,9 +56,9 @@ Node* parseProgram(Node* current, Tokenizer& tokens)
         else 
         {
             // Is declaration
-            current->forward.emplace_back(NodeKind::FUNCTION, current);
+            current->forward.emplace_back(NodeKind::DECL, current);
             doDecl(&current->forward.back(), tokens);
-            if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of declaration");
+            if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of declaration %s", tokens.cur().value.c_str());
             tokens.inc();
         }
     }
@@ -73,22 +68,11 @@ Node* parseProgram(Node* current, Tokenizer& tokens)
 
 Node* parseFunction(Node* current, Tokenizer& tokens)
 {   
-    if (tokens.cur().type == TokenType::TINT)
-    {
-        current->type.typeKind = TypeKind::INT;
-        current->type.sizeofNode = 4;
-        current->type.issigned = true;
-        current->type.ptrCount = 0;
-    }
-    else
-    {        
-        throw compiler_error("Unknown type name: %ull", (size_t) tokens.next().type);
-    }
-
-    tokens.inc();
-
+    Type type = genExplType(tokens);
+    if (type.tKind == TypeKind::NULLTP) throw compiler_error("Expected return type of function before identifier");
     if (tokens.cur().type != TokenType::IDENT) throw compiler_error("Expected identifier or \'(\' before \'%s\' token", tokens.cur().value.c_str());
 
+    current->type = type;
     current->tok = tokens.cur();
 
     tokens.inc();
@@ -101,17 +85,12 @@ Node* parseFunction(Node* current, Tokenizer& tokens)
     {
         while (true)
         {
-            if (tokens.cur().type != TokenType::TINT) throw compiler_error("Expected type of argument");
             current->forward.emplace_back(NodeKind::ARG, current);
-
-            current->forward.back().type.typeKind = TypeKind::INT;
-            current->forward.back().type.sizeofNode = 4;
-            current->forward.back().type.issigned = true;
-            current->forward.back().type.ptrCount = 0;
-
-            tokens.inc();
-
+            Type type = genExplType(tokens);
+            if (!type) throw compiler_error("Expected type of arg before identifier");
             if (tokens.cur().type != TokenType::IDENT) throw compiler_error("Expected identifier as argument");
+            
+            current->forward.back().type = type;
             current->forward.back().tok = tokens.cur();
 
             tokens.inc();
@@ -155,9 +134,9 @@ Node* parseFunction(Node* current, Tokenizer& tokens)
 Node* doDecl(Node* current, Tokenizer& tokens)
 {
     current->kind = NodeKind::DECL;
-    current->type = Type({TypeKind::INT, 4, true, 0});
+    current->type = genExplType(tokens);
+    current->tok = tokens.cur();
     tokens.inc();
-    current->tok = tokens.inc();
 
     // Check if it is just a declaration or an assignment
     if (tokens.cur().type == TokenType::ASSIGN)
@@ -170,9 +149,12 @@ Node* doDecl(Node* current, Tokenizer& tokens)
     return current;
 }
 
-bool checkDecl(Tokenizer& tokens)
+bool checkType(Tokenizer& tokens)
 {
-    return std::find(types.begin(), types.end(), tokens.cur().type) != types.end();
+    size_t pos = tokens.getPos();
+    bool retVal = genExplType(tokens).tKind != TypeKind::NULLTP;
+    tokens.setPos(pos);
+    return retVal;
 }
 
 // Make sure declarations arn't in if statements that don't create a new scope
@@ -180,7 +162,7 @@ bool checkDecl(Tokenizer& tokens)
 Node* parseBlkitem(Node* current, Tokenizer& tokens)
 {
     // Check for declaration
-    if (checkDecl(tokens))
+    if (checkType(tokens))
     {
         doDecl(current, tokens);
         if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of declaration");
@@ -254,7 +236,7 @@ Node* parseStatement(Node* current, Tokenizer& tokens)
         if (tokens.cur().type != TokenType::OPAREN) throw compiler_error("Expected '(' before expr %d", (size_t) tokens.cur().type);
         tokens.inc();
 
-        if (checkDecl(tokens)) 
+        if (checkType(tokens)) 
         {
             current->forward.emplace_back(NodeKind::NOKIND, current);
             doDecl(&current->forward.back(), tokens);
@@ -428,6 +410,7 @@ Node* parseExp(Node* current, Tokenizer& tokens, size_t min_prec)
             {TokenType::DASH, NodeKind::SUB},
             {TokenType::MUL, NodeKind::MUL},
             {TokenType::DIV, NodeKind::DIV}, 
+            {TokenType::MOD, NodeKind::MOD}, 
             {TokenType::AND, NodeKind::AND},
             {TokenType::OR, NodeKind::OR},
             {TokenType::EQ, NodeKind::EQ},
@@ -529,51 +512,54 @@ Node* parseBaseAtom(Node* current, Tokenizer& tokens)
             return current;
         }
     }
-    else if (tokens.cur().type == TokenType::INTV)
+    else
     {
-        current->kind = NodeKind::NUM;
-        
-        current->type.typeKind = TypeKind::INT;
-        current->type.sizeofNode = 4;
-        current->type.issigned = true;
-        current->type.ptrCount = 0;
+        size_t pos = tokens.getPos();
+        Type type = genConstType(tokens);
+        if (type.tKind != TypeKind::NULLTP) 
+        {
+            current->type = type;
+            current->kind = NodeKind::LIT;
+            current->tok = tokens.cur();    
+            tokens.inc();
+            return current;
+        }
+        else 
+        {
+            tokens.setPos(pos);
 
-        current->tok = tokens.cur();
+            if (tokens.cur().type == TokenType::IDENT)
+            {
+                current->kind = NodeKind::VAR;
+                current->tok = tokens.cur();
 
-        tokens.inc();
+                tokens.inc();
 
-        return current;
-    }
-    else if (tokens.cur().type == TokenType::IDENT)
-    {
-        current->kind = NodeKind::VAR;
-        current->tok = tokens.cur();
+                return current;
+            }
+            else 
+            {
+                std::unordered_map<TokenType, NodeKind> convert({
+                    {TokenType::NOT, NodeKind::NOT},
+                    {TokenType::DASH, NodeKind::NEG},
+                    {TokenType::BITCOMPL, NodeKind::BITCOMPL},
+                    {TokenType::INC, NodeKind::PREFIXINC},
+                    {TokenType::DEC, NodeKind::PREFIXDEC},
+                });
 
-        tokens.inc();
+                if (!convert.contains(tokens.cur().type)) compiler_error("Couldn't build an atom from: %s", tokens.cur().value.c_str()); 
 
-        return current;
-    }
-    else 
-    {
-        std::unordered_map<TokenType, NodeKind> convert({
-            {TokenType::NOT, NodeKind::NOT},
-            {TokenType::DASH, NodeKind::NEG},
-            {TokenType::BITCOMPL, NodeKind::BITCOMPL},
-            {TokenType::INC, NodeKind::PREFIXINC},
-            {TokenType::DEC, NodeKind::PREFIXDEC},
-        });
+                current->kind = convert[tokens.cur().type];
 
-        if (!convert.contains(tokens.cur().type)) compiler_error("Couldn't build an atom from: %s", tokens.cur().value.c_str()); 
+                tokens.inc();
+                        
+                current->forward.emplace_back(NodeKind::NOKIND, current);
 
-        current->kind = convert[tokens.cur().type];
+                parseAtom(&current->forward.back(), tokens);
 
-        tokens.inc();
-                
-        current->forward.emplace_back(NodeKind::NOKIND, current);
-
-        parseAtom(&current->forward.back(), tokens);
-
-        return current;            
+                return current;            
+            }
+        }
     }
 
     throw compiler_error("Couldn't build an atom from: %s", tokens.cur().value.c_str());

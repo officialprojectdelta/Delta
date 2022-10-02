@@ -64,7 +64,7 @@ test: all
 	$(CC) -std=c++17 -o $(TESTDIR)/testbuild $(TESTDIR)/tmain.cpp
 	./$(TESTDIR)/testbuild
 
-test1: run testasm	
+test1: run 	
 
 testasm:
 	$(CC) -o $(TESTDIR)/test.o -c test.S 

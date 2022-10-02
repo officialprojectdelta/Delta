@@ -1,35 +1,21 @@
 .text
-.globl foo
-foo:
-    pushq %rbp
-    movq %rsp, %rbp
-    movl $3, %eax
-    movq %rbp, %rsp
-    popq %rbp
-    ret
-    movl $0, %eax
-    movq %rbp, %rsp
-    popq %rbp
-    ret
+global def i32 testfun():
+    mov i32 %i0, i32 3
+    ret i32 %i0
 
-.globl test
-test:
-    pushq %rbp
-    movq %rsp, %rbp
-    call foo
-    movq %rbp, %rsp
-    popq %rbp
-    ret
-    movl $0, %eax
-    movq %rbp, %rsp
-    popq %rbp
-    ret
-
-.align 8
-.bss
-.align 8
-.data
-.globl fooglb
-fooglb:
-    .quad 4
+global def i32 mainfun():
+    mov i32 %i0, i32 0
+    setne i32 %i0, i32 0, i32 %i0
+    je .LC0, i32 0, i32 %i0
+    mov i32 %i0, i32 9
+    setne i32 %i0, i32 0, i32 %i0
+.LC0:
+    def i32 &x1, i32 %i0
+    mov i32 %i0, i32 8
+    sete i32 %i0, i32 0, i32 %i0
+    je .LC1, i32 0, i32 %i0
+    mov i32 %i0, i32 9
+    setne i32 %i0, i32 0, i32 %i0
+.LC1:
+    ret i32 %i0
 

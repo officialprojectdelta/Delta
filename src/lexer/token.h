@@ -23,6 +23,7 @@ enum class TokenType
     ADD,
     MUL,
     DIV,
+    MOD,
     AND,
     OR,
     EQ,
@@ -32,6 +33,7 @@ enum class TokenType
     GREATER,
     GREATEREQ,
     TINT,
+    TFLOAT,
     RET,
     IF,
     ELSE,
@@ -42,6 +44,7 @@ enum class TokenType
     CONTINUE,
     ASSIGN, 
     INTV,
+    FLOATV,
     IDENT,
     NULLTOK
 };
@@ -92,6 +95,7 @@ public:
     Token next() { if (pos + 1 >= tokens.size()) return Token(TokenType::NULLTOK); return tokens.at(pos + 1); }
     size_t size() { return tokens.size(); }
     size_t getPos() { return pos; }
+    void setPos(size_t pos) { this->pos = pos; }
     void check(const std::string& str) { if (pos >= tokens.size()) throw compiler_error(str); }
 };
 

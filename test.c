@@ -1,9 +1,11 @@
-int foo() {
+int test()
+{
     return 3;
 }
 
-int foo = 4;
-
-int test() {
-    return foo();
+int main()
+{
+    int x = 0 && 9;
+    return 8 || 9;
 }
+

@@ -39,7 +39,8 @@ std::unordered_map<std::string, Token> map({
     {"<=", Token(TokenType::LESSEQ)}, 
     {">", Token(TokenType::GREATER)}, 
     {">=", Token(TokenType::GREATEREQ)}, 
-    {"int", Token(TokenType::TINT)}, 
+    {"int", Token(TokenType::TINT)},
+    {"float", Token(TokenType::TFLOAT)}, 
     {"return", Token(TokenType::RET)}, 
     {"if", Token(TokenType::IF)}, 
     {"else", Token(TokenType::ELSE)}, 
@@ -50,6 +51,7 @@ std::unordered_map<std::string, Token> map({
     {"continue", Token(TokenType::CONTINUE)}, 
     {"=", Token(TokenType::ASSIGN)}, 
     {"[integer]", Token(TokenType::INTV)}, 
+    {"[float]", Token(TokenType::FLOATV)},
     {"[alphan]", Token(TokenType::IDENT)}
 });
 
@@ -113,17 +115,20 @@ Tokenizer scan(std::string data)
             // A character group can at most be 3 characters
             if (map.contains(data.substr(i, 3))) 
             {
-                tokens.push_back(map[data.substr(i, 3)]);   
+                tokens.push_back(map[data.substr(i, 3)]);
+                tokens.back().value = data.substr(i, 3);   
                 i+=3;  
             }     
             else if (map.contains(data.substr(i, 2))) 
             {
-                tokens.push_back(map[data.substr(i, 2)]);    
+                tokens.push_back(map[data.substr(i, 2)]);  
+                tokens.back().value = data.substr(i, 2);   
                 i+=2;
             }      
             else if (map.contains(data.substr(i, 1))) 
             {
                 tokens.push_back(map[data.substr(i, 1)]);
+                tokens.back().value = data.substr(i, 1);   
                 i++;
             }          
             else throw compiler_error("Invalid expression: %c", data[i]);

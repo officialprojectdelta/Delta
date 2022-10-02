@@ -1,8 +1,39 @@
 #include "symt.h"
 
 #include <sstream>
+#include <unordered_set>
 
 #include "error/error.h"
+
+std::unordered_set<NodeKind> binOp
+{
+    NodeKind::ADD, 
+    NodeKind::SUB,
+    NodeKind::MUL, 
+    NodeKind::DIV, 
+    NodeKind::MOD,
+};
+
+std::unordered_set<NodeKind> boolbinOp
+{
+    NodeKind::EQ,
+    NodeKind::NOTEQ,
+    NodeKind::LESS,
+    NodeKind::LESSEQ,
+    NodeKind::GREATER,
+    NodeKind::GREATEREQ,
+};
+
+std::unordered_set<NodeKind> unaryOp
+{
+    NodeKind::NOT, 
+    NodeKind::NEG, 
+    NodeKind::BITCOMPL,
+    NodeKind::PREFIXINC,
+    NodeKind::PREFIXDEC,
+    NodeKind::POSTFIXINC,
+    NodeKind::POSTFIXDEC,
+};
 
 // The number of created scopes
 size_t scopeCtr = 0;
@@ -20,7 +51,7 @@ void genFn(Scope* current, Symtable& symtable, Node* node);
 void genScope(Scope* current, Symtable& symtable, Node* node, globalInfo fnArgs);
 void checkVars(Scope* scope, Symtable& symtable, Node* node, globalInfo fnArgs);
 
-// Goes through an expression recusively and checks if a variable has been used before it has been declared
+// Goes through an node recusively and checks if a variable has been used before it has been declared
 void checkVars(Scope* scope, Symtable& symtable, Node* node, globalInfo fnArgs)
 {
     if (node->kind == NodeKind::VAR) 
@@ -34,6 +65,7 @@ void checkVars(Scope* scope, Symtable& symtable, Node* node, globalInfo fnArgs)
             {
                 node->varName = scopeNm.str();
                 node->loc = Location::LOCAL;
+                node->type = symtable.locals[scopeNm.str()].type;
                 break;
             }
 
@@ -50,9 +82,9 @@ void checkVars(Scope* scope, Symtable& symtable, Node* node, globalInfo fnArgs)
                     if (arg.name == node->tok.value)
                     {
                         node->fnName = fnArgs.fnName;
-                        // node->fnName.append("fun");
                         node->loc = Location::FUNCTION;
                         node->varName = node->tok.value;
+                        node->type = arg.type;
                         found = 1;
                         break;
                     }
@@ -68,6 +100,7 @@ void checkVars(Scope* scope, Symtable& symtable, Node* node, globalInfo fnArgs)
                 {
                     node->varName = str.str();
                     node->loc = Location::GLOBAL;
+                    node->type = symtable.globals[str.str()].type;
                     break;
                 }
 
@@ -96,16 +129,87 @@ void checkVars(Scope* scope, Symtable& symtable, Node* node, globalInfo fnArgs)
             checkVars(scope, symtable, &node->forward[i], fnArgs);
         }
 
-        if (!symtable.globals.contains(node->tok.value)) throw compiler_error("Function has not been declared yet");
+        std::stringstream fnName;
+        fnName << node->tok.value << "fun";
 
-        for (size_t i = 0; ; i++)
+        if (!symtable.globals.contains(fnName.str())) 
         {
-            // DO TYPECHECKING LATER
-            if (symtable.globals[node->tok.value].args.size() == i && node->forward.size() == i) break;
-            else if (symtable.globals[node->tok.value].args.size() == i || node->forward.size() == i) throw compiler_error("Invalid function call");
+            std::cout << fnName.str() << std::endl;
+            throw compiler_error("Function has not been declared yet");
         }
 
+    
+        for (size_t i = 0; ; i++)
+        {
+            if (node->forward.size() == 0 && symtable.globals[fnName.str()].args.size() == 0) break;
+
+            if (symtable.globals[fnName.str()].args.size() - 1 == i && node->forward.size() - 1 == i) 
+            {   
+                if (!implCastable(symtable.globals[fnName.str()].args[i].type, node->forward[i].type)) throw compiler_error("Type %ull is not castable to type %ull", (size_t) node->forward[i].type.tKind, (size_t) symtable.globals[fnName.str()].args[i].type.tKind);
+                break;
+            }
+
+            if (!implCastable(symtable.globals[fnName.str()].args[i].type, node->forward[i].type)) throw compiler_error("Type %ull is not castable to type %ull", (size_t) node->forward[i].type.tKind, (size_t) symtable.globals[fnName.str()].args[i].type.tKind);
+            if (symtable.globals[fnName.str()].args.size() == i || node->forward.size() == i) throw compiler_error("Invalid function call");
+        }
+
+        node->type = symtable.globals[fnName.str()].type;
+        node->fnName = fnName.str();
+
         return; 
+    }
+    else if (binOp.contains(node->kind))
+    {
+        // Make sure binary op works with both args (get output type of the operation)
+        checkVars(scope, symtable, &node->forward[0], fnArgs);
+        checkVars(scope, symtable, &node->forward[1], fnArgs);
+
+        Type type = exprCast(node->forward[0].type, node->forward[1].type);
+        if (!type) throw compiler_error("Operator %ull has invalid operands of type %ull and %ull", (size_t) node->kind, (size_t) node->forward[0].type.tKind, (size_t) node->forward[1].type.tKind);
+        node->type = type;
+
+        return;
+    }
+    else if (boolbinOp.contains(node->kind))
+    {
+        checkVars(scope, symtable, &node->forward[0], fnArgs);
+        checkVars(scope, symtable, &node->forward[1], fnArgs);
+
+        Type type = exprCast(node->forward[0].type, node->forward[1].type);
+        if (!type) throw compiler_error("Operator %ull has invalid operands of type %ull and %ull", (size_t) node->kind, (size_t) node->forward[0].type.tKind, (size_t) node->forward[1].type.tKind);
+        node->type = {TypeKind::INT, 4};
+    }
+    else if (unaryOp.contains(node->kind))
+    {
+        // Make sure unary op works on the arg 
+        checkVars(scope, symtable, &node->forward[0], fnArgs);
+
+        node->type = node->forward[0].type;
+
+        return;
+    }
+    else if (node->kind == NodeKind::ASSIGN)
+    {
+        // Make sure right type is castable to left type
+        checkVars(scope, symtable, &node->forward[0], fnArgs);
+        checkVars(scope, symtable, &node->forward[1], fnArgs);
+
+        if (!implCastable(node->forward[0].type, node->forward[1].type)) throw compiler_error("Type %ull is not castable to %ull", node->forward[1].type.tKind, node->forward[0].type.tKind);
+        node->type = node->forward[0].type;
+
+        return;
+    }
+    else if (node->kind == NodeKind::AND || node->kind == NodeKind::OR)
+    {
+        // Make sure both types are convertable to bool (int for now)
+        checkVars(scope, symtable, &node->forward[0], fnArgs);
+        checkVars(scope, symtable, &node->forward[1], fnArgs);
+
+        if (!implCastable(node->forward[0].type, {TypeKind::INT, 4})) throw compiler_error("Type %ull is not castable to boolean value", (size_t) node->forward[0].type.tKind);
+        if (!implCastable(node->forward[1].type, {TypeKind::INT, 4})) throw compiler_error("Type %ull is not castable to boolean value", (size_t) node->forward[1].type.tKind);
+        node->type = {TypeKind::INT, 4};
+        
+        return;
     }
 
     for (size_t i = 0; i < node->forward.size(); i++)
@@ -118,12 +222,18 @@ void checkVars(Scope* scope, Symtable& symtable, Node* node, globalInfo fnArgs)
 
 void genFn(Symtable& symtable, Node* node)
 {
-    if (!symtable.globals.contains(node->tok.value))
+    std::stringstream fnName;
+
+    fnName << node->tok.value << "fun";
+
+    node->fnName = fnName.str();
+
+    if (!symtable.globals.contains(fnName.str()))
     {   
-        symtable.globals.insert({node->tok.value, globalInfo()});
-        symtable.globals[node->tok.value].kind = SKind::FUNCTION;
-        symtable.globals[node->tok.value].type = node->type;
-        symtable.globals[node->tok.value].fnName = node->tok.value;
+        symtable.globals.insert({fnName.str(), globalInfo()});
+        symtable.globals[fnName.str()].kind = SKind::FUNCTION;
+        symtable.globals[fnName.str()].type = node->type;
+        symtable.globals[fnName.str()].fnName = fnName.str();
 
         // Is definition
         if (node->forward.size())
@@ -132,28 +242,28 @@ void genFn(Symtable& symtable, Node* node)
             {
                 // Only add variable names on a definition
                 // Add var locations
-                symtable.globals[node->tok.value].define = true;
+                symtable.globals[fnName.str()].define = true;
 
                 // Add var locations & types & names
                 size_t locCtr = 16;
                 size_t i = 0;
                 for (; node->forward[i].kind == NodeKind::ARG; i++)
                 {
-                    symtable.globals[node->tok.value].args.emplace_back();
-                    symtable.globals[node->tok.value].args[i].name = node->forward[i].tok.value;
-                    symtable.globals[node->tok.value].args[i].type = node->forward[i].type;
-                    symtable.globals[node->tok.value].args[i].loc = locCtr + i * 8;
+                    symtable.globals[fnName.str()].args.emplace_back();
+                    symtable.globals[fnName.str()].args[i].name = node->forward[i].tok.value;
+                    symtable.globals[fnName.str()].args[i].type = node->forward[i].type;
+                    symtable.globals[fnName.str()].args[i].loc = locCtr + i * 8;
 
-                    for (size_t j = 0; j < symtable.globals[node->tok.value].args.size(); j++)
+                    for (size_t j = 0; j < symtable.globals[fnName.str()].args.size(); j++)
                     {
                         if (j == i) break;
 
-                        if (symtable.globals[node->tok.value].args[j].name == node->forward[i].tok.value) throw compiler_error("Redefinition of function argument %s", node->forward[i].tok.value.c_str());
+                        if (symtable.globals[fnName.str()].args[j].name == node->forward[i].tok.value) throw compiler_error("Redefinition of function argument %s", node->forward[i].tok.value.c_str());
                     }
                 } 
 
                 Scope* scope = new Scope(nullptr, scopeCtr);
-                genScope(scope, symtable, &node->forward.back(), symtable.globals[node->tok.value]);
+                genScope(scope, symtable, &node->forward.back(), symtable.globals[fnName.str()]);
                 stackCtr -= scope->stackOffset;
                 scopeCtr++;
                 delete scope;
@@ -161,23 +271,23 @@ void genFn(Symtable& symtable, Node* node)
             // Is declaration
             else
             {   
-                symtable.globals[node->tok.value].define = false;
+                symtable.globals[fnName.str()].define = false;
 
                 // Add var locations & types
                 size_t locCtr = 16;
                 size_t i = 0;
                 for (size_t i = 0; i < node->forward.size(); i++)
                 {
-                    symtable.globals[node->tok.value].args.emplace_back();
-                    symtable.globals[node->tok.value].args[i].name = "";
-                    symtable.globals[node->tok.value].args[i].type = node->forward[i].type;
-                    symtable.globals[node->tok.value].args[i].loc = locCtr + i * 8;
+                    symtable.globals[fnName.str()].args.emplace_back();
+                    symtable.globals[fnName.str()].args[i].name = "";
+                    symtable.globals[fnName.str()].args[i].type = node->forward[i].type;
+                    symtable.globals[fnName.str()].args[i].loc = locCtr + i * 8;
                 }
             }
         }
         else 
         {
-            symtable.globals[node->tok.value].define = false;
+            symtable.globals[fnName.str()].define = false;
         }
     }
     // Check for different decls and redefs
@@ -188,18 +298,18 @@ void genFn(Symtable& symtable, Node* node)
         {
             if (node->forward[i].kind != NodeKind::ARG)
             {
-                if (symtable.globals[node->tok.value].args.size() != i) throw compiler_error("conflicting types for %s", node->tok.value.c_str());
+                if (symtable.globals[fnName.str()].args.size() != i) throw compiler_error("conflicting types for %s", node->tok.value.c_str());
                 break;
             }
 
-            if (node->forward[i].type != symtable.globals[node->tok.value].args[i].type) throw compiler_error("conflicting types for %s", node->tok.value.c_str());
+            if (node->forward[i].type != symtable.globals[fnName.str()].args[i].type) throw compiler_error("conflicting types for %s", fnName.str().c_str());
         }
 
         if (node->forward.back().kind != NodeKind::ARG)
         {
             // Check for already defined
-            if (symtable.globals[node->tok.value].define) throw compiler_error("redefinition of function %s", node->tok.value.c_str());
-            symtable.globals[node->tok.value].define = 1;
+            if (symtable.globals[fnName.str()].define) throw compiler_error("redefinition of function %s", fnName.str().c_str());
+            symtable.globals[fnName.str()].define = 1;
 
             // Add var names to function
             // Make sure there are no matches
@@ -208,19 +318,19 @@ void genFn(Symtable& symtable, Node* node)
             {
                 if (node->forward[i].kind != NodeKind::ARG) break;
 
-                symtable.globals[node->tok.value].args[i].name = node->forward[i].tok.value;
+                symtable.globals[fnName.str()].args[i].name = node->forward[i].tok.value;
                 // Check for var name matches
 
-                for (size_t j = 0; j < symtable.globals[node->tok.value].args.size(); j++)
+                for (size_t j = 0; j < symtable.globals[fnName.str()].args.size(); j++)
                 {
                     if (j == i) break;
 
-                    if (symtable.globals[node->tok.value].args[j].name == node->forward[i].tok.value) throw compiler_error("Redefinition of function argument %s", node->forward[i].tok.value.c_str());
+                    if (symtable.globals[fnName.str()].args[j].name == node->forward[i].tok.value) throw compiler_error("Redefinition of function argument %s", node->forward[i].tok.value.c_str());
                 }
             }
 
             Scope* scope = new Scope(nullptr, scopeCtr);
-            genScope(scope, symtable, &node->forward.back(), symtable.globals[node->tok.value]);
+            genScope(scope, symtable, &node->forward.back(), symtable.globals[fnName.str()]);
             stackCtr -= scope->stackOffset;
             scopeCtr++;
             delete scope;
