@@ -473,7 +473,7 @@ std::string& codegen(Node* node, Symtable& symtable)
 
             if (!returned)
             {
-                oprintf(&text, "ret i32 0\n");
+                oprintf(&text, "    ret i32 0\n");
             }
 
             oprintf(&text, "\n");
