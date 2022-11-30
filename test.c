@@ -1,11 +1,6 @@
 int test()
 {
-    return 3;
+    int x = 4;
+    if (x < 7) return 3;
+    else return x / 2;
 }
-
-int main()
-{
-    int x = 0 && 9;
-    return 8 || 9;
-}
-

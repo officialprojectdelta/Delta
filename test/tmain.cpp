@@ -12,25 +12,35 @@ int main()
     size_t num_successful = 0;
 
     // Test valid c files
-    for (std::filesystem::path cFile : cFileList)
+    /* for (std::filesystem::path cFile : cFileList)
     {
         if (cFile.extension() != ext) continue;
         num_tests++;
         std::stringstream str; 
         std::string inStr = cFile.string();
-        cFile.replace_extension(".S");
+        cFile.replace_extension(".il");
         std::string outStr = cFile.string();
-        str << "./bin/Compiler " << inStr << " " << outStr;
+        std::filesystem::remove(outStr);
+        str << "./bin/dcc " << inStr << " " << outStr;
         std::cout << "testing: " << inStr << std::endl;
         system(str.str().c_str());
         if (std::filesystem::exists(outStr)) 
         {
             num_successful++;
             std::cout << "successful test" << std::endl; 
-            std::filesystem::remove(outStr);
+            // std::filesystem::remove(outStr);
         }
         else std::cout << "test failed" << std::endl;
         std::cout << std::endl;
+    } */
+
+    std::string other_ext(".S");
+    for (std::filesystem::path ilFile : cFileList)
+    {
+        if (ilFile.extension() != other_ext) continue;
+        std::stringstream str;
+        str << "rm -rf " << ilFile.string();
+        system(str.str().c_str());
     }
 
     cFileList = std::filesystem::recursive_directory_iterator("test/tests/invalid/");
@@ -44,13 +54,14 @@ int main()
         std::string inStr = cFile.string();
         cFile.replace_extension(".S");
         std::string outStr = cFile.string();
-        str << "./bin/Compiler " << inStr << " " << outStr;
+        std::filesystem::remove(outStr);
+        str << "./bin/dcc " << inStr << " " << outStr;
         std::cout << "testing: " << inStr << std::endl;
         system(str.str().c_str());
         if (std::filesystem::exists(outStr)) 
         {
             std::cout << "test failed" << std::endl;
-            std::filesystem::remove(outStr);
+            // std::filesystem::remove(outStr);
         }
         else 
         {

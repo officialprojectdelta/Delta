@@ -13,19 +13,20 @@
 
 // Precedence map for binary input operations
 std::unordered_map</* Binary operator */ TokenType, std::pair<size_t /* Precedence */, bool /* Left or right */ >> precMap({
-    {TokenType::ADD, {5, 0}}, 
-    {TokenType::DASH, {5, 0}},
-    {TokenType::MUL, {6, 0}},
-    {TokenType::DIV, {6, 0}},
-    {TokenType::MOD, {6, 0}}, 
-    {TokenType::AND, {2, 0}},
-    {TokenType::OR, {1, 0}},
-    {TokenType::EQ, {3, 0}},
-    {TokenType::NOTEQ, {3, 0}},
-    {TokenType::LESS, {4, 0}},
-    {TokenType::LESSEQ, {4, 0}},
-    {TokenType::GREATER, {4, 0}},
-    {TokenType::GREATEREQ, {4, 0}},
+    {TokenType::ADD, {6, 0}}, 
+    {TokenType::DASH, {6, 0}},
+    {TokenType::MUL, {7, 0}},
+    {TokenType::DIV, {7, 0}},
+    {TokenType::MOD, {7, 0}}, 
+    {TokenType::AND, {3, 0}},
+    {TokenType::OR, {2, 0}},
+    {TokenType::EQ, {4, 0}},
+    {TokenType::NOTEQ, {4, 0}},
+    {TokenType::LESS, {5, 0}},
+    {TokenType::LESSEQ, {5, 0}},
+    {TokenType::GREATER, {5, 0}},
+    {TokenType::GREATEREQ, {5, 0}},
+    {TokenType::TERN, {1, 1}},
     {TokenType::ASSIGN, {0, 1}},
 });
 
@@ -125,6 +126,7 @@ Node* parseFunction(Node* current, Tokenizer& tokens)
         current->forward.back().forward.emplace_back(NodeKind::NOKIND, current);
     
         parseBlkitem(&current->forward.back().forward.back(), tokens);
+        
     }
 
     return current;
@@ -422,22 +424,47 @@ Node* parseExp(Node* current, Tokenizer& tokens, size_t min_prec)
             {TokenType::ASSIGN, NodeKind::ASSIGN}, 
         });
 
-        Node temp = std::move(*current);
-        temp.back = current;
+        if (tokens.cur().type == TokenType::TERN)
+        {
+            Node temp = std::move(*current);
+            temp.back = current;
 
-        current->forward.emplace_back(std::move(temp));
+            current->forward.emplace_back(std::move(temp));
+            current->kind = NodeKind::TERN;
 
-        current->kind = convert[tokens.cur().type];
+            tokens.inc();
 
-        auto precAssoc = precMap[tokens.cur().type];
+            current->forward.emplace_back(NodeKind::NOKIND, current);
+            parseExp(&current->forward.back(), tokens, 0);
 
-        size_t nextMinimumPrec = precAssoc.second ? precAssoc.first : precAssoc.first + 1;
+            std::cout << "parsing tern" << std::endl;
 
-        tokens.inc();
+            if (tokens.cur().type != TokenType::COLON) throw compiler_error("Expected : to match ?");
+            tokens.inc();
 
-        current->forward.emplace_back(NodeKind::NOKIND, current);
+            current->forward.emplace_back(NodeKind::NOKIND, current);
+            parseExp(&current->forward.back(), tokens, 0);
+        }
+        else
+        {
+            Node temp = std::move(*current);
+            temp.back = current;
 
-        parseExp(&current->forward.back(), tokens, nextMinimumPrec);
+            current->forward.emplace_back(std::move(temp));
+
+            current->kind = convert[tokens.cur().type];
+
+            auto precAssoc = precMap[tokens.cur().type];
+
+            size_t nextMinimumPrec = precAssoc.second ? precAssoc.first : precAssoc.first + 1;
+
+            tokens.inc();
+
+            current->forward.emplace_back(NodeKind::NOKIND, current);
+            parseExp(&current->forward.back(), tokens, nextMinimumPrec);
+
+            if (current->forward.back().kind == NodeKind::NOEXPR) throw compiler_error("Expected expression before semicolon");
+        }
     }
 
     return current;
@@ -547,7 +574,7 @@ Node* parseBaseAtom(Node* current, Tokenizer& tokens)
                     {TokenType::DEC, NodeKind::PREFIXDEC},
                 });
 
-                if (!convert.contains(tokens.cur().type)) compiler_error("Couldn't build an atom from: %s", tokens.cur().value.c_str()); 
+                if (!convert.contains(tokens.cur().type)) throw compiler_error("Couldn't build an atom from: %s", tokens.cur().value.c_str()); 
 
                 current->kind = convert[tokens.cur().type];
 

@@ -32,6 +32,8 @@ enum class TokenType
     LESSEQ,
     GREATER,
     GREATEREQ,
+    TERN, 
+    COLON,
     TINT,
     TFLOAT,
     RET,

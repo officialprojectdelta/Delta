@@ -57,7 +57,7 @@ Type implCastable(const Type& lhs, const Type& rhs)
         }
     }
 
-    return lhs;
+    return {TypeKind::NULLTP};
 }
 
 // Does implicit casting of types on an expression (takes 2 input types)

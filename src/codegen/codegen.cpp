@@ -26,6 +26,7 @@ node_str binaryCvt({
     {NodeKind::SUB, "sub"},
     {NodeKind::MUL, "mul"},
     {NodeKind::DIV, "div"},
+    {NodeKind::MOD, "mod"},
     {NodeKind::EQ, "sete"},
     {NodeKind::NOTEQ, "setne"},
     {NodeKind::LESS, "setl"},
@@ -158,7 +159,7 @@ void cgExp(Node* node, Symtable& symtable)
 
         cgExp(&node->forward[0], symtable);
         oprintf(&text, "    setne ", tempStr(node), ", i32 0, ", tempStr(&node->forward[0]), "\n");
-        oprintf(&text, "    je .LC", conditionLblCtr, ", i32 0, ", tempStr(node), "\n");
+        oprintf(&text, "    je .LC", conditionLblCtr, ", ", tempStr(node), ", i32 0\n");
         size_t end = conditionLblCtr;
         conditionLblCtr++;
         cgExp(&node->forward[1], symtable);
@@ -170,7 +171,7 @@ void cgExp(Node* node, Symtable& symtable)
     {
         cgExp(&node->forward[0], symtable);
         oprintf(&text, "    sete ", tempStr(node), ", i32 0, ", tempStr(&node->forward[0]), "\n");
-        oprintf(&text, "    je .LC", conditionLblCtr, ", i32 0, ", tempStr(node), "\n");
+        oprintf(&text, "    je .LC", conditionLblCtr, ", ", tempStr(node), ", i32 0\n");
         size_t end = conditionLblCtr;
         conditionLblCtr++;
         cgExp(&node->forward[1], symtable);
@@ -180,17 +181,37 @@ void cgExp(Node* node, Symtable& symtable)
     }
     else if (node->kind == NodeKind::FUNCALL)
     {
-        oprintf(&text, "    call ", tempStr(node), ", ", node->fnName, "(");
+        std::string call;
+        oprintf(&call, "    call ", tempStr(node), ", ", node->fnName, "(");
         size_t saveCTemp = currentTemp;
         for (; currentTemp - saveCTemp < node->forward.size(); currentTemp++)
         {
             cgExp(&node->forward[currentTemp - saveCTemp], symtable);
-            oprintf(&text, tempStr(&node->forward[currentTemp - saveCTemp]));
+            oprintf(&call, tempStr(&node->forward[currentTemp - saveCTemp]));
             if (node->forward.size() - 1 == currentTemp + saveCTemp) break;
-            oprintf(&text, ", ");
+            oprintf(&call, ", ");
         }
-        oprintf(&text, ")\n");
+        oprintf(&text, call, ")\n");
         return;
+    }
+    else if (node->kind == NodeKind::TERN)
+    {
+        cgExp(&node->forward[0], symtable);
+        oprintf(&text, "    je .LC", conditionLblCtr, ", ", tempStr(&node->forward[0]), ", i32 0\n");
+        size_t c2 = conditionLblCtr;
+        conditionLblCtr++;
+        cgExp(&node->forward[1], symtable);
+        oprintf(&text, "    jmp .LC", conditionLblCtr, "\n"); 
+        size_t end = conditionLblCtr;
+        conditionLblCtr++;
+        oprintf(&text, ".LC", c2, ":\n");
+        cgExp(&node->forward[2], symtable);
+        oprintf(&text, ".LC", end, ":\n");
+        return;
+    }
+    else 
+    {
+        throw compiler_error("Unknown node type %llu", (size_t) node->kind);
     }
 
     return;
@@ -238,7 +259,7 @@ void cgStmt(Node* node, Symtable& symtable, std::optional<size_t> end, std::opti
         case NodeKind::IF:
         {
             cgStmtExp(node, symtable, 0);
-            oprintf(&text, "    je .LC", conditionLblCtr, " i32 0, ", tempStr(&node->forward[0]), "\n");
+            oprintf(&text, "    je .LC", conditionLblCtr, ", ", tempStr(&node->forward[0]), " i32 0\n");
 
             size_t s2 = conditionLblCtr;
             conditionLblCtr++;
@@ -301,7 +322,7 @@ void cgStmt(Node* node, Symtable& symtable, std::optional<size_t> end, std::opti
             {
                 cgStmtExp(&node->forward[1], symtable);
 
-                oprintf(&text, "    je .LC", end, ", i32 0, ", tempStr(&node->forward[1]), "\n");
+                oprintf(&text, "    je .LC", end, ", ", tempStr(&node->forward[1]), ", i32 0\n");
             } // else creates infinite loop, no code is printed
 
             size_t cont = conditionLblCtr;
@@ -334,7 +355,7 @@ void cgStmt(Node* node, Symtable& symtable, std::optional<size_t> end, std::opti
 
             cgStmtExp(&node->forward[0], symtable);
 
-            oprintf(&text, "    je .LC", end, ", i32 0, ", tempStr(&node->forward[0]), "\n");
+            oprintf(&text, "    je .LC", end, ", ", tempStr(&node->forward[0]), ", i32 0\n");
 
             // Body of while loop
             cgStmt(&node->forward[1], symtable, end, condEval);
@@ -364,7 +385,7 @@ void cgStmt(Node* node, Symtable& symtable, std::optional<size_t> end, std::opti
             cgStmtExp(&node->forward[1], symtable);
 
             oprintf(&text, ".LC", cont, ":\n");
-            oprintf(&text, "    je .LC", top, ", i32 0, ", tempStr(&node->forward[0]), "\n");
+            oprintf(&text, "    je .LC", top, ", ", tempStr(&node->forward[0]), ", i32 0\n");
             oprintf(&text, ".LC", end, ":\n");
 
             return;
@@ -426,10 +447,10 @@ std::string& codegen(Node* node, Symtable& symtable)
     {
         if (node->forward[i].kind == NodeKind::FUNCTION) 
         {
-            if (node->forward[i].forward.size() && node->forward[i].forward.back().kind == NodeKind::ARG) continue;
+            if (!node->forward[i].forward.size() || node->forward[i].forward.back().kind == NodeKind::ARG) continue;
             
-            oprintf(&text, "global def ", typeToStr[node->forward[i].type.tKind], node->forward[i].type.size_of * 8, " ", node->forward[i].fnName, "(");
-            
+            oprintf(&text, "global def ", typeToStr[node->forward[i].type.tKind], node->forward[i].type.size_of * 8, " ", node->forward[i].fnName, " (");
+
             // Loop through args and add them to function definition
             for (size_t j = 0; j < node->forward[i].forward.size() - 1; j++)
             {
@@ -452,7 +473,7 @@ std::string& codegen(Node* node, Symtable& symtable)
 
             if (!returned)
             {
-                oprintf(&text, "ret null\n");
+                oprintf(&text, "ret i32 0\n");
             }
 
             oprintf(&text, "\n");

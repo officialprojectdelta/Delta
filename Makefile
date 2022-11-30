@@ -1,4 +1,4 @@
-TARGET_EXEC = Compiler
+TARGET_EXEC = dcc
 CC = clang++
 
 SRC = $(wildcard src/*.cpp) $(wildcard src/**/*.cpp) $(wildcard src/**/**/*.cpp) $(wildcard src/**/**/**/*.cpp)
@@ -15,7 +15,7 @@ INC_DIR_LIB =
 DEBUGFLAGS = $(INC_DIR_SRC) $(INC_DIR_LIB) -Wall -g
 RELEASEFLAGS = $(INC_DIR_SRC) $(INC_DIR_LIB) -O2
 ASMFLAGS = $(INC_DIR_SRC) $(INC_DIR_LIBS) -Wall
-LDFLAGS = $(LIBS) -lm
+LDFLAGS = $(LIBS) -lm -fuse-ld=mold
 
 .PHONY: all libs clean test
 
@@ -61,7 +61,7 @@ dltest:
 	rm -rf $(TESTOBJ)
 
 test: all
-	$(CC) -std=c++17 -o $(TESTDIR)/testbuild $(TESTDIR)/tmain.cpp
+	$(CC) -std=c++2a -o $(TESTDIR)/testbuild $(TESTDIR)/tmain.cpp
 	./$(TESTDIR)/testbuild
 
 test1: run 	

@@ -76,6 +76,8 @@ void checkVars(Scope* scope, Symtable& symtable, Node* node, globalInfo fnArgs)
 
                 std::stringstream str;
 
+                str << fnArgs.fnName << node->tok.value << "fvar";
+
                 bool found = 0;
                 for (auto arg : fnArgs.args)
                 {
@@ -83,7 +85,7 @@ void checkVars(Scope* scope, Symtable& symtable, Node* node, globalInfo fnArgs)
                     {
                         node->fnName = fnArgs.fnName;
                         node->loc = Location::FUNCTION;
-                        node->varName = node->tok.value;
+                        node->varName = str.str();
                         node->type = arg.type;
                         found = 1;
                         break;
@@ -138,18 +140,17 @@ void checkVars(Scope* scope, Symtable& symtable, Node* node, globalInfo fnArgs)
             throw compiler_error("Function has not been declared yet");
         }
 
-    
         for (size_t i = 0; ; i++)
         {
             if (node->forward.size() == 0 && symtable.globals[fnName.str()].args.size() == 0) break;
 
             if (symtable.globals[fnName.str()].args.size() - 1 == i && node->forward.size() - 1 == i) 
             {   
-                if (!implCastable(symtable.globals[fnName.str()].args[i].type, node->forward[i].type)) throw compiler_error("Type %ull is not castable to type %ull", (size_t) node->forward[i].type.tKind, (size_t) symtable.globals[fnName.str()].args[i].type.tKind);
+                if (!implCastable(symtable.globals[fnName.str()].args[i].type, node->forward[i].type)) throw compiler_error("Type %llu is not castable to type %llu", (size_t) node->forward[i].type.tKind, (size_t) symtable.globals[fnName.str()].args[i].type.tKind);
                 break;
             }
 
-            if (!implCastable(symtable.globals[fnName.str()].args[i].type, node->forward[i].type)) throw compiler_error("Type %ull is not castable to type %ull", (size_t) node->forward[i].type.tKind, (size_t) symtable.globals[fnName.str()].args[i].type.tKind);
+            if (!implCastable(symtable.globals[fnName.str()].args[i].type, node->forward[i].type)) throw compiler_error("Type %llu is not castable to type %llu", (size_t) node->forward[i].type.tKind, (size_t) symtable.globals[fnName.str()].args[i].type.tKind);
             if (symtable.globals[fnName.str()].args.size() == i || node->forward.size() == i) throw compiler_error("Invalid function call");
         }
 
@@ -165,7 +166,7 @@ void checkVars(Scope* scope, Symtable& symtable, Node* node, globalInfo fnArgs)
         checkVars(scope, symtable, &node->forward[1], fnArgs);
 
         Type type = exprCast(node->forward[0].type, node->forward[1].type);
-        if (!type) throw compiler_error("Operator %ull has invalid operands of type %ull and %ull", (size_t) node->kind, (size_t) node->forward[0].type.tKind, (size_t) node->forward[1].type.tKind);
+        if (!type) throw compiler_error("Operator %llu has invalid operands of type %llu and %llu", (size_t) node->kind, (size_t) node->forward[0].type.tKind, (size_t) node->forward[1].type.tKind);
         node->type = type;
 
         return;
@@ -176,7 +177,7 @@ void checkVars(Scope* scope, Symtable& symtable, Node* node, globalInfo fnArgs)
         checkVars(scope, symtable, &node->forward[1], fnArgs);
 
         Type type = exprCast(node->forward[0].type, node->forward[1].type);
-        if (!type) throw compiler_error("Operator %ull has invalid operands of type %ull and %ull", (size_t) node->kind, (size_t) node->forward[0].type.tKind, (size_t) node->forward[1].type.tKind);
+        if (!type) throw compiler_error("Operator %llu has invalid operands of type %llu and %llu", (size_t) node->kind, (size_t) node->forward[0].type.tKind, (size_t) node->forward[1].type.tKind);
         node->type = {TypeKind::INT, 4};
     }
     else if (unaryOp.contains(node->kind))
@@ -194,7 +195,7 @@ void checkVars(Scope* scope, Symtable& symtable, Node* node, globalInfo fnArgs)
         checkVars(scope, symtable, &node->forward[0], fnArgs);
         checkVars(scope, symtable, &node->forward[1], fnArgs);
 
-        if (!implCastable(node->forward[0].type, node->forward[1].type)) throw compiler_error("Type %ull is not castable to %ull", node->forward[1].type.tKind, node->forward[0].type.tKind);
+        if (!implCastable(node->forward[0].type, node->forward[1].type)) throw compiler_error("Type %llu is not castable to %llu", node->forward[1].type.tKind, node->forward[0].type.tKind);
         node->type = node->forward[0].type;
 
         return;
@@ -205,10 +206,37 @@ void checkVars(Scope* scope, Symtable& symtable, Node* node, globalInfo fnArgs)
         checkVars(scope, symtable, &node->forward[0], fnArgs);
         checkVars(scope, symtable, &node->forward[1], fnArgs);
 
-        if (!implCastable(node->forward[0].type, {TypeKind::INT, 4})) throw compiler_error("Type %ull is not castable to boolean value", (size_t) node->forward[0].type.tKind);
-        if (!implCastable(node->forward[1].type, {TypeKind::INT, 4})) throw compiler_error("Type %ull is not castable to boolean value", (size_t) node->forward[1].type.tKind);
+        if (!implCastable({TypeKind::INT, 4}, node->forward[0].type)) throw compiler_error("Type %llu is not castable to boolean value", (size_t) node->forward[0].type.tKind);
+        if (!implCastable({TypeKind::INT, 4}, node->forward[1].type)) throw compiler_error("Type %llu is not castable to boolean value", (size_t) node->forward[1].type.tKind);
         node->type = {TypeKind::INT, 4};
         
+        return;
+    }
+    else if (node->kind == NodeKind::RETURN)
+    {
+        // Make sure return type matches function return type
+        checkVars(scope, symtable, &node->forward[0], fnArgs);
+
+        if (!implCastable(fnArgs.type, node->forward[0].type)) throw compiler_error("Type %llu does not match the return type of function %s", (size_t) node->forward[0].type, fnArgs.fnName.c_str());
+        node->type = fnArgs.type;
+
+        return;
+    }
+    else if (node->kind == NodeKind::TERN)
+    {
+        // Make sure e1 is castable to bool
+        // Get exprCast of e2 and e3
+        // Set this type to that
+
+        checkVars(scope, symtable, &node->forward[0], fnArgs);
+        checkVars(scope, symtable, &node->forward[1], fnArgs);
+        checkVars(scope, symtable, &node->forward[2], fnArgs);
+
+        if (!implCastable({TypeKind::INT, 4}, node->forward[0].type)) throw compiler_error("Type %llu is not castable to boolean value", (size_t) node->forward[0].type.tKind);
+        Type type = exprCast(node->forward[1].type, node->forward[2].type);
+        if (!type) throw compiler_error("Operator %llu has invalid operands of type %llu and %llu", (size_t) node->kind, (size_t) node->forward[1].type.tKind, (size_t) node->forward[2].type.tKind);
+        node->type = type;
+
         return;
     }
 
@@ -244,15 +272,18 @@ void genFn(Symtable& symtable, Node* node)
                 // Add var locations
                 symtable.globals[fnName.str()].define = true;
 
-                // Add var locations & types & names
-                size_t locCtr = 16;
                 size_t i = 0;
+                // Add var locations & types & names
                 for (; node->forward[i].kind == NodeKind::ARG; i++)
                 {
                     symtable.globals[fnName.str()].args.emplace_back();
                     symtable.globals[fnName.str()].args[i].name = node->forward[i].tok.value;
                     symtable.globals[fnName.str()].args[i].type = node->forward[i].type;
-                    symtable.globals[fnName.str()].args[i].loc = locCtr + i * 8;
+
+                    std::stringstream str;
+
+                    str << fnName.str() << node->forward[i].tok.value << "fvar";
+                    node->forward[i].varName = str.str();
 
                     for (size_t j = 0; j < symtable.globals[fnName.str()].args.size(); j++)
                     {
@@ -274,14 +305,12 @@ void genFn(Symtable& symtable, Node* node)
                 symtable.globals[fnName.str()].define = false;
 
                 // Add var locations & types
-                size_t locCtr = 16;
                 size_t i = 0;
                 for (size_t i = 0; i < node->forward.size(); i++)
                 {
                     symtable.globals[fnName.str()].args.emplace_back();
                     symtable.globals[fnName.str()].args[i].name = "";
                     symtable.globals[fnName.str()].args[i].type = node->forward[i].type;
-                    symtable.globals[fnName.str()].args[i].loc = locCtr + i * 8;
                 }
             }
         }
@@ -319,6 +348,10 @@ void genFn(Symtable& symtable, Node* node)
                 if (node->forward[i].kind != NodeKind::ARG) break;
 
                 symtable.globals[fnName.str()].args[i].name = node->forward[i].tok.value;
+                
+                std::stringstream str;
+                str << fnName.str() << node->forward[i].tok.value << "fvar";
+                node->forward[i].varName = str.str();
                 // Check for var name matches
 
                 for (size_t j = 0; j < symtable.globals[fnName.str()].args.size(); j++)

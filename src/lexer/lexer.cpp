@@ -31,6 +31,7 @@ std::unordered_map<std::string, Token> map({
     {"--", Token(TokenType::DEC)}, 
     {"*", Token(TokenType::MUL)}, 
     {"/", Token(TokenType::DIV)}, 
+    {"%", Token(TokenType::MOD)}, 
     {"&&", Token(TokenType::AND)}, 
     {"||", Token(TokenType::OR)}, 
     {"==", Token(TokenType::EQ)}, 
@@ -38,7 +39,9 @@ std::unordered_map<std::string, Token> map({
     {"<", Token(TokenType::LESS)}, 
     {"<=", Token(TokenType::LESSEQ)}, 
     {">", Token(TokenType::GREATER)}, 
-    {">=", Token(TokenType::GREATEREQ)}, 
+    {">=", Token(TokenType::GREATEREQ)},
+    {"?", Token(TokenType::TERN)},
+    {":", Token(TokenType::COLON)}, 
     {"int", Token(TokenType::TINT)},
     {"float", Token(TokenType::TFLOAT)}, 
     {"return", Token(TokenType::RET)}, 
@@ -83,13 +86,16 @@ Tokenizer scan(std::string data)
             } while (strchr(/* Identifiers can be alphanumeric after the first character */ALPHANUMERIC, data[i]));
 
             // If it is a keyword, add it to tokens
-            if (map.contains(str)) tokens.push_back(map[str]);
+            if (map.contains(str)) 
+            {
+                tokens.push_back(map[str]);
+                tokens.back().value = str;
+            }
             else 
             {
                 // Create a identifier from the string
-                Token create = map["[alphan]"];
-                create.value = str;
-                tokens.push_back(create);
+                tokens.push_back(map["[alphan]"]);
+                tokens.back().value = str;
             }
         }  
         else if (strchr(DIGITS, data[i])) 

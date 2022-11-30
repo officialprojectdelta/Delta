@@ -42,6 +42,7 @@ enum class NodeKind
     LESSEQ,
     GREATER,
     GREATEREQ,
+    TERN,
     ASSIGN, 
     LIT, 
     DECL,
