@@ -1,9 +1,0 @@
-Current plan
-
-Using var as loc? (Do later)
-
-All registers used at full size (no point in not)
-
-Better error handling
-
-Compile to Sirq's IL

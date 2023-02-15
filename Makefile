@@ -27,7 +27,7 @@ dirs:
 	mkdir -p ./$(BIN)
 
 link: $(OBJ)
-	$(CC) -o $(BIN)/$(TARGET_EXEC) $^ $(LDFLAGS)
+	$(CC) -o llvm-config --cxxflags --ldflags --system-libs --libs core orcjit native $(BIN)/$(TARGET_EXEC) $^ $(LDFLAGS)
 
 bld: 
 	$(MAKE) clean

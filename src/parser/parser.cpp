@@ -32,7 +32,7 @@ std::unordered_map</* Binary operator */ TokenType, std::pair<size_t /* Preceden
 
 // Function definitions not all are needed, but they are all here (some are needed)
 Node* parseProgram(Node* current, Tokenizer& tokens);
-Node* parseFunction(Node* current, Tokenizer& tokens);
+Node* parseFunction(FunctionNode* current, Tokenizer& tokens);
 Node* parseBlkitem(Node* current, Tokenizer& tokens);
 Node* parseStatement(Node* current, Tokenizer& tokens);
 Node* parseExp(Node* current, Tokenizer& tokens, size_t min_prec);
@@ -43,15 +43,16 @@ bool checkType(Tokenizer& tokens);
 
 Node* parseProgram(Node* current, Tokenizer& tokens)
 {
-    current->kind = NodeKind::PRGRM;
+    Node* current = new ProgramNode();
 
     while (tokens.getPos() < tokens.size())
     {
         if (tokens.cur(2).type == TokenType::OPAREN)
         {
             // A program node will create a function subnode
-            current->forward.emplace_back(NodeKind::FUNCTION, current);
-            parseFunction(&current->forward.back(), tokens);
+            FunctionNode* fn = new FunctionNode;
+            current->forward.emplace_back(fn);
+            parseFunction(fn, tokens);
             tokens.inc();
         }
         else 
@@ -67,7 +68,7 @@ Node* parseProgram(Node* current, Tokenizer& tokens)
     return current;
 }
 
-Node* parseFunction(Node* current, Tokenizer& tokens)
+Node* parseFunction(FunctionNode* current, Tokenizer& tokens)
 {   
     Type type = genExplType(tokens);
     if (type.tKind == TypeKind::NULLTP) throw compiler_error("Expected return type of function before identifier");
@@ -86,13 +87,13 @@ Node* parseFunction(Node* current, Tokenizer& tokens)
     {
         while (true)
         {
-            current->forward.emplace_back(NodeKind::ARG, current);
+            current->args.emplace_back(current);
             Type type = genExplType(tokens);
             if (!type) throw compiler_error("Expected type of arg before identifier");
             if (tokens.cur().type != TokenType::IDENT) throw compiler_error("Expected identifier as argument");
             
-            current->forward.back().type = type;
-            current->forward.back().tok = tokens.cur();
+            current->args.back().type = type;
+            current->args.back().tok = tokens.cur();
 
             tokens.inc();
 
@@ -112,7 +113,7 @@ Node* parseFunction(Node* current, Tokenizer& tokens)
     if (tokens.cur().type != TokenType::OBRACKET) throw compiler_error("Invalid function declaration");
     tokens.inc();
 
-    current->forward.emplace_back(NodeKind::BLOCKSTMT, current);
+    current->forward.emplace_back(current);
 
     // Loop through func (which is a list of statements), if } is found end the loop
     while (true) 
@@ -122,10 +123,8 @@ Node* parseFunction(Node* current, Tokenizer& tokens)
         // Parse blkitem should point to next token 
         if (tokens.cur().type == TokenType::CBRACKET) return current;
 
-        // This is evaluated in the parseStatement function
-        current->forward.back().forward.emplace_back(NodeKind::NOKIND, current);
-    
-        parseBlkitem(&current->forward.back().forward.back(), tokens);
+        // Pass in block that it is a part of 
+        parseBlkitem(&current->forward.back(), tokens);
         
     }
 
@@ -179,23 +178,22 @@ Node* parseBlkitem(Node* current, Tokenizer& tokens)
     }
 }
 
-Node* parseStatement(Node* current, Tokenizer& tokens)
+Node* parseStatement(BlockStmtNode* current, Tokenizer& tokens)
 {
     // Return statement
     if (tokens.cur().type == TokenType::RET)
     {
-        current->kind = NodeKind::RETURN;
-
+        RetNode* node = new RetNode(current);
         tokens.inc();
 
-        current->forward.emplace_back(NodeKind::NOKIND, current);
-        parseExp(&current->forward.back(), tokens, 0);
+        node->value = parseExp(tokens, 0);
 
         // Make sure a return statement ends in a semicolon
         if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of statement");
 
-        tokens.inc();
+        current.emplace_back(node);
 
+        tokens.inc();
         return current;
     }
     // If statement
