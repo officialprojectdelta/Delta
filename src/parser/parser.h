@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "node.h"
+#include "node/node.h"
 #include "lexer/token.h"
 
 // The function that parses a set of tokens

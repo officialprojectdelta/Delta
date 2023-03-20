@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <memory>
+#include <list>
 
 #include "lexer/token.h"
 #include "type.h"
@@ -71,13 +73,44 @@ struct ProgramNode : Node
     Node* back;
 
     // List of every node, going forward
-    std::list<std::unique_ptr<Node>> forward;
+    std::list<Node> forward;
 
     // Codegen
-    void visit(std::string* write) const override;
+    void visit(std::string* write) override;
 
-    Node(Node* back) { this->back = back; }
-    Node() { this->back = nullptr; }
+    ProgramNode(Node* back) { this->back = back; }
+    ProgramNode() { this->back = nullptr; }
+};
+
+struct ArgNode : Node
+{
+    Node* back;
+
+    // Type of argument
+    Type type;
+    
+    // Name of argument value
+    Token tok;
+
+    // Codegen
+    void visit(std::string* write) override;
+
+    ArgNode(Node* back) { this->back = back; }
+    ArgNode() { this->back = nullptr; }
+};
+
+struct BlockStmtNode : Node
+{   
+    Node* back;
+
+    // Every statment in the block statment
+    std::list<Node> forward;
+
+    // Codegen
+    void visit(std::string* write) override;
+
+    BlockStmtNode(Node* back) { this->back = back; }
+    BlockStmtNode() { this->back = nullptr; }
 };
 
 struct FunctionNode : Node
@@ -97,42 +130,30 @@ struct FunctionNode : Node
     std::list<BlockStmtNode> forward;
 
     // Codegen
-    void visit(std::string* write) const override;
+    void visit(std::string* write) override;
 
-    Node(Node* back) { this->back = back; }
-    Node() { this->back = nullptr; }
+    FunctionNode(Node* back) { this->back = back; }
+    FunctionNode() { this->back = nullptr; }
 };
 
-struct ArgNode : Node
+struct ExpNode : Node 
 {
     Node* back;
+    virtual void visit(std::string* write) override = 0;
+    virtual ~ExpNode() = override 0;
+}
 
-    // Type of argument
-    Type type;
-    
-    // Name of argument value
-    Token tok;
+struct BinaryOpNode : ExpNode
+{
+    ExpNode* lhs;
+    ExpNode* rhs;
 
-    // Codegen
-    void visit(std::string* write) const override;
-
-    Node(Node* back) { this->back = back; }
-    Node() { this->back = nullptr; }
-};
-
-struct BlockStmtNode : Node
-{   
-    Node* back;
-
-    // Every statment in the block statment
-    std::list<Node> forward;
-
-    // Codegen
-    void visit(std::string* write) const override;
-
-    Node(Node* back) { this->back = back; }
-    Node() { this->back = nullptr; }
-};
+    ~BinaryOpNode() override 
+    {
+        if (lhs) delete lhs;
+        if (rhs) delete rhs;
+    }
+}
 
 struct RetNode : Node
 {
@@ -146,4 +167,5 @@ struct RetNode : Node
 
     Node(Node* back) { this->back = back; }
     Node() { this->back = nullptr; }
+    ~RetNode() { if (value) delete value; } override;
 };
