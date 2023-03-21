@@ -58,6 +58,9 @@ enum class Location
     LOCAL, GLOBAL, FUNCTION
 };
 
+// Forward decls so I can organize this
+struct ExpNode;
+
 // The Node struct
 // Holds data for a parser node
 
@@ -73,7 +76,7 @@ struct ProgramNode : Node
     Node* back;
 
     // List of every node, going forward
-    std::list<Node> forward;
+    std::list<std::unique_ptr<Node>> forward;
 
     // Codegen
     void visit(std::string* write) override;
@@ -104,7 +107,7 @@ struct BlockStmtNode : Node
     Node* back;
 
     // Every statment in the block statment
-    std::list<Node> forward;
+    std::list<std::unique_ptr<Node>> forward;
 
     // Codegen
     void visit(std::string* write) override;
@@ -136,36 +139,68 @@ struct FunctionNode : Node
     FunctionNode() { this->back = nullptr; }
 };
 
+struct DeclNode : Node
+{
+    Node* back;
+
+    // Type of the variable that is being declared
+    Type type; 
+
+    // Variable name
+    Token tok;
+
+    // Assignment expression if there is one
+    ExpNode* assign = nullptr;
+
+    void visit(std::string* write) override;
+
+    DeclNode(Node* back) { this->back = back; }
+    DeclNode() { this->back = nullptr; }
+    ~DeclNode() override { if (assign) delete assign; }
+};
+
 struct ExpNode : Node 
 {
     Node* back;
     virtual void visit(std::string* write) override = 0;
-    virtual ~ExpNode() = override 0;
-}
+    virtual ~ExpNode() = 0;
+};
+
+struct NoExpr : ExpNode
+{
+    
+    void visit(std::string* write) override;
+};
 
 struct BinaryOpNode : ExpNode
 {
-    ExpNode* lhs;
-    ExpNode* rhs;
+    ExpNode* lhs = nullptr;
+    ExpNode* rhs = nullptr;
 
+    NodeKind op;
+
+    void visit(std::string* write) override;
+    
+    BinaryOpNode(Node* back) { this->back = back; }
+    BinaryOpNode() { this->back = nullptr; }
     ~BinaryOpNode() override 
     {
         if (lhs) delete lhs;
         if (rhs) delete rhs;
     }
-}
+};
 
 struct RetNode : Node
 {
     Node* back;
 
     // The return value of the statment
-    ExpNode* value;
+    ExpNode* value = nullptr;
 
     // Codegen
-    void visit(std::string* write) const override;
+    void visit(std::string* write) override;
 
-    Node(Node* back) { this->back = back; }
-    Node() { this->back = nullptr; }
-    ~RetNode() { if (value) delete value; } override;
+    RetNode(Node* back) { this->back = back; }
+    RetNode() { this->back = nullptr; }
+    ~RetNode() override { if (value) delete value; };
 };
