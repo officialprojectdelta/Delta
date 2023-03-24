@@ -1,10 +1,16 @@
 #include "type.h"
 
 #include <array>
-#include <unordered_set>
+#include <unordered_map>
+
+std::unordered_map<Type, std::string> type_to_string({
+    {{TypeKind::INT, 4}, "i32"},
+    {{TypeKind::FLOAT, 4}, "f32"},
+    {{TypeKind::NULLTP, 0}, "null"}
+});
 
 // Generates a type based on constants (such as integers, floating points, arrays, and string literals)
-Type genConstType(Tokenizer& tokens)
+Type gen_const_type(Tokenizer& tokens)
 {
     switch (tokens.cur().type)
     {
@@ -24,9 +30,9 @@ Type genConstType(Tokenizer& tokens)
     }
 }
 
-// Checks if right type is castable to left type
+// Checks if cast of the 2 types
 // Returns notype if not
-Type implCastable(const Type& lhs, const Type& rhs)
+Type impl_cast(const Type& lhs, const Type& rhs)
 {
     // Make sure it isn't a narrow
     if (rhs.size_of > lhs.size_of) return {TypeKind::NULLTP};
@@ -34,24 +40,24 @@ Type implCastable(const Type& lhs, const Type& rhs)
     // Check if identical
     if (lhs == rhs) return lhs;
 
-    if (lhs.tKind == TypeKind::FLOAT)
+    if (lhs.t_kind == TypeKind::FLOAT)
     {
-        if (rhs.tKind == TypeKind::FLOAT)
+        if (rhs.t_kind == TypeKind::FLOAT)
         {
             return lhs;
         }
-        else if (rhs.tKind == TypeKind::INT)
+        else if (rhs.t_kind == TypeKind::INT)
         {
             return rhs;
         }
     }
-    else if (lhs.tKind == TypeKind::INT)
+    else if (lhs.t_kind == TypeKind::INT)
     {
-        if (rhs.tKind == TypeKind::FLOAT)
+        if (rhs.t_kind == TypeKind::FLOAT)
         {
             return lhs;
         }
-        else if (rhs.tKind == TypeKind::INT)
+        else if (rhs.t_kind == TypeKind::INT)
         {
             return rhs;
         }
@@ -62,14 +68,14 @@ Type implCastable(const Type& lhs, const Type& rhs)
 
 // Does implicit casting of types on an expression (takes 2 input types)
 // Returns notype if not a match
-Type exprCast(const Type& lhs, const Type& rhs)
+Type expl_cast(const Type& lhs, const Type& rhs)
 {
     // Check if identical
     if (lhs == rhs) return lhs;
 
-    if (lhs.tKind == TypeKind::FLOAT)
+    if (lhs.t_kind == TypeKind::FLOAT)
     {
-        if (rhs.tKind == TypeKind::FLOAT)
+        if (rhs.t_kind == TypeKind::FLOAT)
         {
             if (rhs.size_of > lhs.size_of)
             {
@@ -80,7 +86,7 @@ Type exprCast(const Type& lhs, const Type& rhs)
                 return lhs;
             }
         }
-        else if (rhs.tKind == TypeKind::INT)
+        else if (rhs.t_kind == TypeKind::INT)
         {
             if (rhs.size_of > lhs.size_of)
             {
@@ -92,9 +98,9 @@ Type exprCast(const Type& lhs, const Type& rhs)
             }
         }
     }
-    else if (lhs.tKind == TypeKind::INT)
+    else if (lhs.t_kind == TypeKind::INT)
     {
-        if (rhs.tKind == TypeKind::FLOAT)
+        if (rhs.t_kind == TypeKind::FLOAT)
         {
             if (rhs.size_of > lhs.size_of)
             {
@@ -105,7 +111,7 @@ Type exprCast(const Type& lhs, const Type& rhs)
                 return {TypeKind::FLOAT, lhs.size_of};
             }
         }
-        else if (rhs.tKind == TypeKind::INT)
+        else if (rhs.t_kind == TypeKind::INT)
         {
             if (rhs.size_of > lhs.size_of)
             {
@@ -122,7 +128,7 @@ Type exprCast(const Type& lhs, const Type& rhs)
 }
 
 // Generates an explicit type (ie from a variable declaration or a cast)
-Type genExplType(Tokenizer& tokens)
+Type gen_expl_type(Tokenizer& tokens)
 {
     switch (tokens.cur().type)
     {
@@ -142,4 +148,9 @@ Type genExplType(Tokenizer& tokens)
             return {TypeKind::NULLTP};
         }
     }
+}
+
+std::string to_string(Type type)
+{
+    return type_to_string[type];
 }

@@ -12,7 +12,7 @@
 #include "type.h"
 
 // Precedence map for binary input operations
-std::unordered_map</* Binary operator */ TokenType, std::pair<size_t /* Precedence */, bool /* Left or right */ >> precMap({
+std::unordered_map</* Binary operator */ TokenType, std::pair<size_t /* Precedence */, bool /* Left or right */ >> prec_map({
     {TokenType::ADD, {6, 0}}, 
     {TokenType::DASH, {6, 0}},
     {TokenType::MUL, {7, 0}},
@@ -31,17 +31,17 @@ std::unordered_map</* Binary operator */ TokenType, std::pair<size_t /* Preceden
 });
 
 // Function definitions not all are needed, but they are all here (some are needed)
-ProgramNode* parseProgram(Tokenizer& tokens);
-Node* parseFunction(FunctionNode* current, Tokenizer& tokens);
-Node* parseBlkitem(Node* current, Tokenizer& tokens);
-Node* parseStatement(Node* current, Tokenizer& tokens);
-ExpNode* parseExp(Tokenizer& tokens, size_t min_prec);
-Node* parseAtom(Node* current, Tokenizer& tokens);
-Node* parseBaseAtom(Node* current, Tokenizer& tokens);
-DeclNode* doDecl(DeclNode* current, Tokenizer& tokens);
-bool checkType(Tokenizer& tokens);
+ProgramNode* parse_program(Tokenizer& tokens);
+FunctionNode* parse_function(Tokenizer& tokens);
+Node* parse_blk_item(Tokenizer& tokens);
+Node* parse_statement(Tokenizer& tokens);
+Node* parse_exp(Tokenizer& tokens, size_t min_prec);
+Node* parse_atom(Tokenizer& tokens);
+Node* parse_base_atom(Tokenizer& tokens);
+DeclNode* do_decl(Tokenizer& tokens);
+bool check_type(Tokenizer& tokens);
 
-ProgramNode* parseProgram(Tokenizer& tokens)
+ProgramNode* parse_program(Tokenizer& tokens)
 {
     ProgramNode* current = new ProgramNode();
 
@@ -50,17 +50,13 @@ ProgramNode* parseProgram(Tokenizer& tokens)
         if (tokens.cur(2).type == TokenType::OPAREN)
         {
             // A program node will create a function subnode
-            FunctionNode* fn = new FunctionNode(current);
-            current->forward.emplace_back(fn);
-            parseFunction(fn, tokens);
+            current->forward.emplace_back(parse_function(tokens));
             tokens.inc();
         }
         else 
         {
             // Is declaration
-            DeclNode* decl = new DeclNode(current);
-            current->forward.emplace_back(decl);
-            doDecl(decl, tokens);
+            current->forward.emplace_back(do_decl(tokens));
             if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of declaration %s", tokens.cur().value.c_str());
             tokens.inc();
         }
@@ -69,14 +65,16 @@ ProgramNode* parseProgram(Tokenizer& tokens)
     return current;
 }
 
-Node* parseFunction(FunctionNode* current, Tokenizer& tokens)
+FunctionNode* parse_function(Tokenizer& tokens)
 {   
-    Type type = genExplType(tokens);
-    if (type.tKind == TypeKind::NULLTP) throw compiler_error("Expected return type of function before identifier");
+    FunctionNode* current = new FunctionNode;
+
+    Type type = gen_expl_type(tokens);
+    if (type.t_kind == TypeKind::NULLTP) throw compiler_error("Expected return type of function before identifier");
     if (tokens.cur().type != TokenType::IDENT) throw compiler_error("Expected identifier or \'(\' before \'%s\' token", tokens.cur().value.c_str());
 
     current->type = type;
-    current->tok = tokens.cur();
+    current->name = tokens.cur();
 
     tokens.inc();
 
@@ -88,8 +86,8 @@ Node* parseFunction(FunctionNode* current, Tokenizer& tokens)
     {
         while (true)
         {
-            current->args.emplace_back(current);
-            Type type = genExplType(tokens);
+            current->args.emplace_back();
+            Type type = gen_expl_type(tokens);
             if (!type) throw compiler_error("Expected type of arg before identifier");
             if (tokens.cur().type != TokenType::IDENT) throw compiler_error("Expected identifier as argument");
             
@@ -114,8 +112,6 @@ Node* parseFunction(FunctionNode* current, Tokenizer& tokens)
     if (tokens.cur().type != TokenType::OBRACKET) throw compiler_error("Invalid function declaration");
     tokens.inc();
 
-    current->forward.emplace_back(current);
-
     // Loop through func (which is a list of statements), if } is found end the loop
     while (true) 
     {
@@ -124,187 +120,169 @@ Node* parseFunction(FunctionNode* current, Tokenizer& tokens)
         // Parse blkitem should point to next token 
         if (tokens.cur().type == TokenType::CBRACKET) return current;
 
-        // Pass in block that it is a part of 
-        parseBlkitem(&current->forward.back(), tokens);
-        
+        current->statements.forward.emplace_back(parse_blk_item(tokens));
     }
 
     return current;
 }
 
 // Check for declaration, used for blkitems, global scope, and loops
-DeclNode* doDecl(DeclNode* current, Tokenizer& tokens)
+DeclNode* do_decl(Tokenizer& tokens)
 {
-    current->type = genExplType(tokens);
-    current->tok = tokens.cur();
+    DeclNode* decl = new DeclNode;
+    decl->type = gen_expl_type(tokens);
+    decl->name = tokens.cur();
     tokens.inc();
 
     // Check if it is just a declaration or an assignment
     if (tokens.cur().type == TokenType::ASSIGN)
     {
         tokens.inc();
-        current->assign = parseExp(tokens, 0);
+        decl->assign = parse_exp(tokens, 0);
     }
 
-    return current;
+    return decl;
 }
 
-bool checkType(Tokenizer& tokens)
+bool check_type(Tokenizer& tokens)
 {
     size_t pos = tokens.getPos();
-    bool retVal = genExplType(tokens).tKind != TypeKind::NULLTP;
+    bool retVal = gen_expl_type(tokens).t_kind != TypeKind::NULLTP;
     tokens.setPos(pos);
     return retVal;
 }
 
 // Make sure declarations arn't in if statements that don't create a new scope
 // So there is no if variable creation
-Node* parseBlkitem(Node* current, Tokenizer& tokens)
+Node* parse_blk_item(Tokenizer& tokens)
 {
     // Check for declaration
-    if (checkType(tokens))
+    if (check_type(tokens))
     {
-        doDecl(current, tokens);
+        DeclNode* decl = do_decl(tokens);
         if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of declaration");
         tokens.inc();
-        return current;
+        return decl;
     }
     // Parse as a statement
-    else
-    {
-        parseStatement(current, tokens);
-        return current;
-    }
+    else return parse_statement(tokens);
 }
 
-Node* parseStatement(BlockStmtNode* current, Tokenizer& tokens)
+Node* parse_statement(Tokenizer& tokens)
 {
     // Return statement
     if (tokens.cur().type == TokenType::RET)
     {
-        RetNode* node = new RetNode(current);
+        RetNode* rnode = new RetNode;
         tokens.inc();
 
-        node->value = parseExp(tokens, 0);
+        rnode->value = parse_exp(tokens, 0);
 
         // Make sure a return statement ends in a semicolon
         if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of statement");
 
-        current->forward.emplace_back(node);
-
         tokens.inc();
-        return current;
+        return rnode;
     }
     // If statement
     if (tokens.cur().type == TokenType::IF)
     {
-        current->kind = NodeKind::IF;
+        IfNode* inode = new IfNode;
         tokens.inc();
         if (tokens.cur().type != TokenType::OPAREN) throw compiler_error("Expected '(' before expr %d", (size_t) tokens.cur().type);
         tokens.inc();
 
         // Get condition expression
-        current->forward.emplace_back(NodeKind::NOKIND, current);
-        parseExp(&current->forward.back(), tokens, 0);
-        if (current->forward.back().kind == NodeKind::NOEXPR)
-        {
-            throw compiler_error("Expected expression");
-        }
+        if (tokens.cur().type == TokenType::SEMI) throw compiler_error("Expected expression");
+        inode->condition = parse_exp(tokens, 0);
 
-        if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Unmatched ass \'(\'");
+        if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Unmatched \'(\'");
         tokens.inc();
 
         // Get statement to execute if condition is true
-        current->forward.emplace_back(NodeKind::NOKIND, current);
-        parseStatement(&current->forward.back(), tokens);
+        inode->statement = parse_statement(tokens);
 
         // Check if next token is else
         if (tokens.cur().type == TokenType::ELSE) 
         { 
             tokens.inc();
-            current->forward.emplace_back(NodeKind::NOKIND, current);
-            parseStatement(&current->forward.back(), tokens);
+            inode->else_stmt = parse_statement(tokens);
         }
 
-        return current;
+        return inode;
     }
     else if (tokens.cur().type == TokenType::FOR)
     {
-        current->kind = NodeKind::FOR;
+        ForNode* fnode = new ForNode;
         tokens.inc();
         if (tokens.cur().type != TokenType::OPAREN) throw compiler_error("Expected '(' before expr %d", (size_t) tokens.cur().type);
         tokens.inc();
 
-        if (checkType(tokens)) 
+        // Parse initial statement
+        if (check_type(tokens)) 
         {
-            current->forward.emplace_back(NodeKind::NOKIND, current);
-            doDecl(&current->forward.back(), tokens);
+            fnode->initial = do_decl(tokens);
             if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of expression");
             tokens.inc();
         }
         else
         {
-            current->forward.emplace_back(NodeKind::NOKIND, current);
-            parseExp(&current->forward.back(), tokens, 0);
+            fnode->initial = parse_exp(tokens, 0);
             if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of expression");
             tokens.inc();
         }
 
-        current->forward.emplace_back(NodeKind::NOKIND, current);
-        parseExp(&current->forward.back(), tokens, 0);
+        // Parse break loop if false statement
+        fnode->condition = parse_exp(tokens, 0);
         if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of expression");
         tokens.inc();
 
         if (tokens.cur().type != TokenType::CPAREN)
         {
-            current->forward.emplace_back(NodeKind::NOKIND, current);
-            parseExp(&current->forward.back(), tokens, 0);
+            fnode->end = parse_exp(tokens, 0);
             if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Unmatched \'(\'");
             tokens.inc();
         }
         else
         {
-            current->forward.emplace_back(NodeKind::NOEXPR, current);
+            fnode->end = new NoExpr;
             tokens.inc();
         }
 
         // Get statement to execute if condition is true
-        current->forward.emplace_back(NodeKind::NOKIND, current);
-        parseStatement(&current->forward.back(), tokens);
+        fnode->statement = parse_statement(tokens);
 
-        return current;
-        
+        return fnode;
     }
     else if (tokens.cur().type == TokenType::WHILE)
     {   
-        current->kind = NodeKind::WHILE;
+        WhileNode* wnode = new WhileNode;
         tokens.inc();
         if (tokens.cur().type != TokenType::OPAREN) throw compiler_error("Expected '(' before expr %d", (size_t) tokens.cur().type);
         tokens.inc();
 
-        current->forward.emplace_back(NodeKind::NOKIND, current);
-        parseExp(&current->forward.back(), tokens, 0);
+        if (tokens.cur().type == TokenType::SEMI) throw compiler_error("Expected expression");
+
+        // Parse condition
+        wnode->condition = parse_exp(tokens, 0);
 
         // Check for errors
         if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Unmatched \'(\'");
-        if (current->forward.back().kind == NodeKind::NOEXPR) throw compiler_error("Expected expression");
-
         tokens.inc();
 
         // Get statement to execute if condition is true
-        current->forward.emplace_back(NodeKind::NOKIND, current);
-        parseStatement(&current->forward.back(), tokens);
+        wnode->statement = parse_statement(tokens);
 
-        return current;
+        return wnode;
     }
     else if (tokens.cur().type == TokenType::DO)
     {
-        current->kind = NodeKind::DO;
+        WhileNode* wnode = new WhileNode;
+        wnode->do_on = true;
         tokens.inc();
 
         // Get statement to execute if condition is true
-        current->forward.emplace_back(NodeKind::NOKIND, current);
-        parseStatement(&current->forward.back(), tokens);
+        wnode->statement = parse_statement(tokens);
 
         // Look for while, if not found error
         if (tokens.cur().type != TokenType::WHILE) throw compiler_error("Expected 'while' in do/while loop");
@@ -312,49 +290,41 @@ Node* parseStatement(BlockStmtNode* current, Tokenizer& tokens)
         if (tokens.cur().type != TokenType::OPAREN) throw compiler_error("Expected '(' before expr %d", (size_t) tokens.cur().type);
         tokens.inc();
 
-        current->forward.emplace_back(NodeKind::NOKIND, current);
-        parseExp(&current->forward.back(), tokens, 0);
+        if (tokens.cur().type == TokenType::SEMI) throw compiler_error("Expected expression");
+
+        wnode->condition = parse_exp(tokens, 0);
 
         // Check for errors
         if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Unmatched \'(\'");
-        if (current->forward.back().kind == NodeKind::NOEXPR) throw compiler_error("Expected expression");
-
         tokens.inc();
 
         if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of statement");
-
         tokens.inc();
 
-        return current;
+        return wnode;
     }
     else if (tokens.cur().type == TokenType::BREAK)
     {
-        current->kind = NodeKind::BREAK;
         tokens.inc();
-
         if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of statement");
-
         tokens.inc();
 
-        return current;
+        return new BreakNode;
     }
     else if (tokens.cur().type == TokenType::CONTINUE)
     {
-        current->kind = NodeKind::CONTINUE;
         tokens.inc();
-
         if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of statement");
-
         tokens.inc();
 
-        return current;
+        return new ContinueNode;
     }
     else if (tokens.cur().type == TokenType::OBRACKET)
     {
-        current->kind = NodeKind::BLOCKSTMT;
+        BlockStmtNode* bnode = new BlockStmtNode;
         tokens.inc();
 
-        if (tokens.cur().type == TokenType::CBRACKET) return current;
+        if (tokens.cur().type == TokenType::CBRACKET) return bnode;
 
         // Loop through func (which is a list of statements), if } is found end the loop
         while (true) 
@@ -364,47 +334,35 @@ Node* parseStatement(BlockStmtNode* current, Tokenizer& tokens)
             // ParseBlk item should point to next token
             if (tokens.cur().type == TokenType::CBRACKET) break;
 
-            // This is evaluated in the parseStatement function
-            current->forward.emplace_back(NodeKind::NOKIND, current);
-        
-            parseBlkitem(&current->forward.back(), tokens);
+            // This is evaluated in the parse_statement function
+            bnode->forward.emplace_back(parse_blk_item(tokens));
         }
 
         tokens.inc();
 
-        return current;
+        return bnode;
     }
-    // Is expression (error handling done in parseexp)
+    // Is expression (error handling done in parse_exp)
     else
     {
-        parseExp(current, tokens, 0);
+        Node* node = parse_exp(tokens, 0);
         // Make sure a statement ends in a semicolon
         if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of statement");
 
         tokens.inc();
+        return node;
     }
-
-    return current;
 }
 
-ExpNode* parseExp(Tokenizer& tokens, size_t min_prec)
+Node* parse_exp(Tokenizer& tokens, size_t min_prec)
 {   
-    ExpNode* rval;
+    if (tokens.cur().type == TokenType::SEMI) return new NoExpr;
 
-    if (tokens.cur().type == TokenType::SEMI)
-    {
-        rval = new NoExpr(rval);
-        return current;
-    }
-
-    parseAtom(current, tokens);
+    Node* lhs = parse_atom(tokens);
 
     while (true)
     {
-        if (!precMap.contains(tokens.cur().type) || precMap[tokens.cur().type].first < min_prec) 
-        {
-            break;
-        }
+        if (!prec_map.contains(tokens.cur().type) || prec_map[tokens.cur().type].first < min_prec) break;
 
         std::unordered_map<TokenType, NodeKind> convert({
             {TokenType::ADD, NodeKind::ADD},
@@ -425,51 +383,41 @@ ExpNode* parseExp(Tokenizer& tokens, size_t min_prec)
 
         if (tokens.cur().type == TokenType::TERN)
         {
-            Node temp = std::move(*current);
-            temp.back = current;
+            TernNode* tern = new TernNode;
+            tern->condition = lhs;
+            lhs = tern;
 
-            current->forward.emplace_back(std::move(temp));
-            current->kind = NodeKind::TERN;
+            tokens.inc();   
 
-            tokens.inc();
-
-            current->forward.emplace_back(NodeKind::NOKIND, current);
-            parseExp(&current->forward.back(), tokens, 0);
-
-            std::cout << "parsing tern" << std::endl;
+            tern->lhs = parse_exp(tokens, 0);
 
             if (tokens.cur().type != TokenType::COLON) throw compiler_error("Expected : to match ?");
             tokens.inc();
 
-            current->forward.emplace_back(NodeKind::NOKIND, current);
-            parseExp(&current->forward.back(), tokens, 0);
+            tern->rhs = parse_exp(tokens, 0);
         }
         else
         {
-            Node temp = std::move(*current);
-            temp.back = current;
+            BinaryOpNode* rval = new BinaryOpNode;
+            rval->lhs = lhs;
+            lhs = rval;
 
-            current->forward.emplace_back(std::move(temp));
-
-            current->kind = convert[tokens.cur().type];
-
-            auto precAssoc = precMap[tokens.cur().type];
+            rval->op = convert[tokens.cur().type];
+            auto precAssoc = prec_map[tokens.cur().type];
 
             size_t nextMinimumPrec = precAssoc.second ? precAssoc.first : precAssoc.first + 1;
 
             tokens.inc();
+            if (tokens.cur().type == TokenType::SEMI) throw compiler_error("Expected expression before semicolon");
 
-            current->forward.emplace_back(NodeKind::NOKIND, current);
-            parseExp(&current->forward.back(), tokens, nextMinimumPrec);
-
-            if (current->forward.back().kind == NodeKind::NOEXPR) throw compiler_error("Expected expression before semicolon");
+            rval->rhs = parse_exp(tokens, nextMinimumPrec);
         }
     }
 
-    return current;
+    return lhs;
 }
 
-Node* parseAtom(Node* current, Tokenizer& tokens)
+Node* parse_atom(Tokenizer& tokens)
 {
     if (tokens.cur().type == TokenType::IDENT)
     {
@@ -477,78 +425,75 @@ Node* parseAtom(Node* current, Tokenizer& tokens)
         {
             case TokenType::INC:
             {
-                current->kind = NodeKind::POSTFIXINC;
-                current->forward.emplace_back(NodeKind::NOKIND, current);
-                parseBaseAtom(&current->forward.back(), tokens);
+                UnaryOpNode* op = new UnaryOpNode;
+                op->op = NodeKind::POSTFIXINC;
+                op->forward = parse_base_atom(tokens);
                 tokens.inc();
-                return current;
+                return op;
             }
             case TokenType::DEC:
             {
-                current->kind = NodeKind::POSTFIXDEC;
-                current->forward.emplace_back(NodeKind::NOKIND, current);
-                parseBaseAtom(&current->forward.back(), tokens);
+                UnaryOpNode* op = new UnaryOpNode;
+                op->op = NodeKind::POSTFIXDEC;
+                op->forward = parse_base_atom(tokens);
                 tokens.inc();
-                return current;
+                return op;
             }
             case TokenType::OPAREN:
             {
                 // Parse function
                 // Subnodes are args
+                FuncallNode* fn = new FuncallNode;
 
-                current->kind = NodeKind::FUNCALL;
-                current->tok = tokens.cur();
+                fn->name = tokens.cur();
                 
                 tokens.inc();
                 tokens.inc();
 
                 while (tokens.cur().type != TokenType::CPAREN)
                 {
-                    current->forward.emplace_back(NodeKind::NOKIND, current);
-                    parseExp(&current->forward.back(), tokens, 0);
+                    fn->args.emplace_back(parse_exp(tokens, 0));
 
                     if (tokens.cur().type == TokenType::CPAREN) break;
-
                     if (tokens.cur().type != TokenType::COMMA) throw compiler_error("Expected comma before next argument");
                     tokens.inc();
                 }
 
                 tokens.inc();
-                return current;
+                return fn;
             }
         }
     }
 
-    parseBaseAtom(current, tokens);
-    return current;
+    return parse_base_atom(tokens);
 }
 
-Node* parseBaseAtom(Node* current, Tokenizer& tokens)
+Node* parse_base_atom(Tokenizer& tokens)
 {
     if (tokens.cur().type == TokenType::OPAREN) 
     {
         tokens.inc();
 
-        parseExp(current, tokens, 0);
+        Node* exp = parse_exp(tokens, 0);
 
         if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Unmatched parenthesis \'(\'");
         else 
         {
             tokens.inc();
-            return current;
+            return exp;
         }
     }
     else
     {
         size_t pos = tokens.getPos();
-        Type type = genConstType(tokens);
-        if (type.tKind != TypeKind::NULLTP) 
+        Type type = gen_const_type(tokens);
+        if (type.t_kind != TypeKind::NULLTP) 
         {
-            current->type = type;
-            current->kind = NodeKind::LIT;
-            current->tok = tokens.cur();    
+            LiteralNode* lit = new LiteralNode;
+            lit->type = type;
+            lit->value = tokens.cur();    
             tokens.inc();
-            return current;
+            return lit;
         }
         else 
         {
@@ -556,15 +501,15 @@ Node* parseBaseAtom(Node* current, Tokenizer& tokens)
 
             if (tokens.cur().type == TokenType::IDENT)
             {
-                current->kind = NodeKind::VAR;
-                current->tok = tokens.cur();
-
+                VarNode* var = new VarNode;
+                var->name = tokens.cur();
                 tokens.inc();
-
-                return current;
+                return var;
             }
             else 
             {
+                UnaryOpNode* op = new UnaryOpNode;
+
                 std::unordered_map<TokenType, NodeKind> convert({
                     {TokenType::NOT, NodeKind::NOT},
                     {TokenType::DASH, NodeKind::NEG},
@@ -574,16 +519,12 @@ Node* parseBaseAtom(Node* current, Tokenizer& tokens)
                 });
 
                 if (!convert.contains(tokens.cur().type)) throw compiler_error("Couldn't build an atom from: %s", tokens.cur().value.c_str()); 
-
-                current->kind = convert[tokens.cur().type];
-
+                op->op = convert[tokens.cur().type];
                 tokens.inc();
-                        
-                current->forward.emplace_back(NodeKind::NOKIND, current);
+    
+                op->forward = parse_atom(tokens);
 
-                parseAtom(&current->forward.back(), tokens);
-
-                return current;            
+                return op;            
             }
         }
     }
@@ -593,16 +534,3 @@ Node* parseBaseAtom(Node* current, Tokenizer& tokens)
     return nullptr;
 }
     
-// A wrapper for the parseNode function
-// Takes in a map and tokens
-Node* parse(Tokenizer& tokens)
-{
-    // Create a node
-    Node* node = new Node;
-    
-    // Parse it as a programNode
-    parseProgram(node, tokens);
-
-    // Return the created node pointer
-    return node;
-}

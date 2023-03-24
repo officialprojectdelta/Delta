@@ -19,7 +19,7 @@ private:
     char* retval;
 public:
     // Writes to retval the formatted string
-    compiler_error(const std::string& fstr, ...)
+    compiler_error(std::string fstr, ...)
     {
         va_list aptr;
 

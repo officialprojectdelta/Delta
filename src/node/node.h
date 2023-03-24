@@ -58,8 +58,12 @@ enum class Location
     LOCAL, GLOBAL, FUNCTION
 };
 
-// Forward decls so I can organize this
-struct ExpNode;
+// Holds additional data that is passed into the visit functions so they have some context
+struct AdditionalArgs
+{
+    // Used if the visit function its coming from is a decl function
+    bool decl;
+};
 
 // The Node struct
 // Holds data for a parser node
@@ -68,27 +72,30 @@ struct Node
 {
     // For every node, will codegen output of the nodetype
     virtual void visit(std::string* write) = 0;
+    virtual void visit_symt() {}
     virtual ~Node() = 0;
 };
 
 struct ProgramNode : Node
 {
-    Node* back;
-
     // List of every node, going forward
     std::list<std::unique_ptr<Node>> forward;
 
     // Codegen
-    void visit(std::string* write) override;
+    virtual void visit(std::string* write) override;
+    void visit_symt() override
+    {
+        for (auto i = std::begin(forward); i != std::end(forward); i++)
+        {
+            (*i)->visit_symt();
+        }
+    }
 
-    ProgramNode(Node* back) { this->back = back; }
-    ProgramNode() { this->back = nullptr; }
+    ~ProgramNode() override {}
 };
 
 struct ArgNode : Node
 {
-    Node* back;
-
     // Type of argument
     Type type;
     
@@ -96,93 +103,73 @@ struct ArgNode : Node
     Token tok;
 
     // Codegen
-    void visit(std::string* write) override;
+    virtual void visit(std::string* write) override;
 
-    ArgNode(Node* back) { this->back = back; }
-    ArgNode() { this->back = nullptr; }
+    ~ArgNode() override {}
 };
 
 struct BlockStmtNode : Node
 {   
-    Node* back;
-
     // Every statment in the block statment
     std::list<std::unique_ptr<Node>> forward;
 
     // Codegen
-    void visit(std::string* write) override;
+    virtual void visit(std::string* write) override;
 
-    BlockStmtNode(Node* back) { this->back = back; }
-    BlockStmtNode() { this->back = nullptr; }
+    ~BlockStmtNode() override {}
 };
 
 struct FunctionNode : Node
 {
-    Node* back;
-
     // Return type of the function
     Type type; 
 
     // Function name
-    Token tok;
+    Token name;
 
     // List of arguments
     std::list<ArgNode> args;
 
     // List of every node (instruction) going forward
-    std::list<BlockStmtNode> forward;
+    BlockStmtNode statements;
 
     // Codegen
-    void visit(std::string* write) override;
+    virtual void visit(std::string* write) override;
+    void visit_symt() override;
 
-    FunctionNode(Node* back) { this->back = back; }
-    FunctionNode() { this->back = nullptr; }
+    ~FunctionNode() override {}
 };
 
-struct DeclNode : Node
+struct NoExpr : Node
 {
-    Node* back;
+    virtual void visit(std::string* write) override;
 
-    // Type of the variable that is being declared
-    Type type; 
-
-    // Variable name
-    Token tok;
-
-    // Assignment expression if there is one
-    ExpNode* assign = nullptr;
-
-    void visit(std::string* write) override;
-
-    DeclNode(Node* back) { this->back = back; }
-    DeclNode() { this->back = nullptr; }
-    ~DeclNode() override { if (assign) delete assign; }
+    ~NoExpr() override {}
 };
 
-struct ExpNode : Node 
+struct UnaryOpNode : Node
 {
-    Node* back;
-    virtual void visit(std::string* write) override = 0;
-    virtual ~ExpNode() = 0;
-};
-
-struct NoExpr : ExpNode
-{
-    
-    void visit(std::string* write) override;
-};
-
-struct BinaryOpNode : ExpNode
-{
-    ExpNode* lhs = nullptr;
-    ExpNode* rhs = nullptr;
+    Node* forward = nullptr;
 
     NodeKind op;
 
-    void visit(std::string* write) override;
+    virtual void visit(std::string* write) override;
+
+    ~UnaryOpNode() override
+    {
+        if (forward) delete forward;
+    }
+};
+
+struct BinaryOpNode : Node
+{
+    Node* lhs = nullptr;
+    Node* rhs = nullptr;
+
+    NodeKind op;
+
+    virtual void visit(std::string* write) override;
     
-    BinaryOpNode(Node* back) { this->back = back; }
-    BinaryOpNode() { this->back = nullptr; }
     ~BinaryOpNode() override 
     {
         if (lhs) delete lhs;
@@ -190,17 +177,131 @@ struct BinaryOpNode : ExpNode
     }
 };
 
+struct TernNode : Node
+{
+    Node* condition = nullptr;
+    Node* lhs = nullptr;
+    Node* rhs = nullptr;
+
+    virtual void visit(std::string* write) override;
+
+    ~TernNode() override
+    {
+        if (condition) delete condition;
+        if (lhs) delete lhs;
+        if (rhs) delete rhs;
+    }
+};
+
+struct LiteralNode : Node
+{
+    Type type;
+    Token value;
+
+    virtual void visit(std::string* write) override;
+    
+    ~LiteralNode() override {}
+};
+
+struct VarNode : Node
+{
+    Token name; 
+
+    virtual void visit(std::string* write) override;
+
+    ~VarNode() override {}
+};
+
+struct FuncallNode : Node
+{
+    Token name;
+
+    std::list<std::unique_ptr<Node>> args;
+
+    virtual void visit(std::string* write) override;
+
+    ~FuncallNode() override {}
+};
+
+struct DeclNode : Node
+{
+    // Type of the variable that is being declared
+    Type type; 
+
+    // Variable name
+    Token name;
+
+    // Assignment expression if there is one
+    Node* assign = nullptr;
+
+    virtual void visit(std::string* write) override;
+    void visit_symt() override;
+
+    ~DeclNode() override { if (assign) delete assign; }
+};
+
+// Node types for break and continue
+struct BreakNode : Node { virtual void visit(std::string* write) override; ~BreakNode() override {} };
+struct ContinueNode : Node { virtual void visit(std::string* write) override; ~ContinueNode() override {} };
+
 struct RetNode : Node
 {
-    Node* back;
-
-    // The return value of the statment
-    ExpNode* value = nullptr;
+    // The return value of the statement
+    Node* value = nullptr;
 
     // Codegen
-    void visit(std::string* write) override;
+    virtual void visit(std::string* write) override;
 
-    RetNode(Node* back) { this->back = back; }
-    RetNode() { this->back = nullptr; }
     ~RetNode() override { if (value) delete value; };
+};
+
+struct IfNode : Node
+{
+    Node* condition = nullptr;
+    Node* statement = nullptr;
+    Node* else_stmt = nullptr;
+
+    virtual void visit(std::string* write) override;
+
+    ~IfNode() override
+    { 
+        if (condition) delete condition;
+        if (statement) delete statement;
+        if (else_stmt) delete else_stmt;
+    }
+};
+
+struct ForNode : Node
+{
+    Node* initial = nullptr;
+    Node* condition = nullptr;
+    Node* end = nullptr;
+    Node* statement = nullptr;
+
+    virtual void visit(std::string* write) override;
+
+    ~ForNode() override
+    { 
+        if (initial) delete initial;
+        if (condition) delete condition;
+        if (end) delete end;
+        if (statement) delete statement;
+    }
+};
+
+struct WhileNode : Node
+{
+    Node* condition = nullptr;
+    Node* statement = nullptr;
+
+    // So I can reuse this for do, because do and while are very similar
+    bool do_on = false;
+
+    virtual void visit(std::string* write) override;
+
+    ~WhileNode() override
+    { 
+        if (condition) delete condition;
+        if (statement) delete statement;
+    }
 };

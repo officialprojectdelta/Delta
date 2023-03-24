@@ -7,7 +7,7 @@
 
 // Remove a character (arg 1) from the string (arg 2)
 // However, it will not remove characters surrounded by '
-std::string removeChar(char character, const std::string& data)
+std::string remove_char(char character, const std::string& data)
 {
     std::string newBuf;
 
@@ -36,7 +36,7 @@ std::string removeChar(char character, const std::string& data)
 }
 
 // Read data from a file loaded from filepath into a string
-std::string readFile(const std::string& filepath)
+std::string read_file(const std::string& filepath)
 {
     std::ifstream file(filepath);
     std::string str;
