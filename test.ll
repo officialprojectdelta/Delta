@@ -23,7 +23,55 @@ define dso_local i32 @test() #0 {
   ret i32 %12
 }
 
-declare dso_local i32 @spread(i32) #1
+; Function Attrs: noinline nounwind optnone uwtable
+define dso_local i32 @spread(i32 %0) #0 {
+  %2 = alloca i32, align 4
+  %3 = alloca i32, align 4
+  %4 = alloca float, align 4
+  %5 = alloca i32, align 4
+  %6 = alloca i32, align 4
+  store i32 %0, i32* %2, align 4
+  store i32 0, i32* %3, align 4
+  br label %7
+
+7:                                                ; preds = %15, %1
+  %8 = load i32, i32* %3, align 4
+  %9 = icmp slt i32 %8, 4
+  br i1 %9, label %10, label %18
+
+10:                                               ; preds = %7
+  %11 = load i32, i32* %2, align 4
+  %12 = load i32, i32* %3, align 4
+  %13 = sdiv i32 %12, 4
+  %14 = add nsw i32 %11, %13
+  store i32 %14, i32* %2, align 4
+  br label %15
+
+15:                                               ; preds = %10
+  %16 = load i32, i32* %3, align 4
+  %17 = add nsw i32 %16, 1
+  store i32 %17, i32* %3, align 4
+  br label %7
+
+18:                                               ; preds = %7
+  store float 0x4002666660000000, float* %4, align 4
+  %19 = load float, float* %4, align 4
+  %20 = fcmp une float %19, 0.000000e+00
+  %21 = xor i1 %20, true
+  %22 = zext i1 %21 to i32
+  store volatile i32 %22, i32* %5, align 4
+  %23 = load float, float* %4, align 4
+  %24 = fneg float %23
+  %25 = fptosi float %24 to i32
+  store volatile i32 %25, i32* %5, align 4
+  %26 = load volatile i32, i32* %5, align 4
+  %27 = add nsw i32 %26, 1
+  store volatile i32 %27, i32* %5, align 4
+  %28 = add nsw i32 %26, 3
+  store i32 %28, i32* %6, align 4
+  %29 = load i32, i32* %2, align 4
+  ret i32 %29
+}
 
 ; Function Attrs: noinline nounwind optnone uwtable
 define dso_local i32* @blah(i32* %0) #0 {
@@ -61,7 +109,6 @@ define dso_local float @test1() #0 {
 }
 
 attributes #0 = { noinline nounwind optnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 !llvm.module.flags = !{!0}
 !llvm.ident = !{!1}

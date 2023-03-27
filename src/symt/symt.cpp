@@ -23,7 +23,14 @@ void FunctionNode::visit_symt()
 {
     if (function_definitions.contains(generate_name(this->type, this->name.value, this->args)) && function_definitions[generate_name(this->type, this->name.value, this->args)].defined) throw compiler_error("Redefinition of function %s\n", generate_name(this->type, this->name.value, this->args).c_str());
     bool defined = this->statements.forward.size() == 0 ? false : true;
-    function_definitions[generate_name(this->type, this->name.value, this->args)] = {this->type, this->name.value, defined, this->args};
+    std::unordered_map<std::string, size_t> arg_to_il_name;
+    size_t j = 0;
+    for (auto i = std::begin(this->args); i != std::end(this->args); i++, j++)
+    {
+        if (arg_to_il_name.contains((*i).tok.value)) throw compiler_error("Redefinition of argument %s\n", (*i).tok.value.c_str());    
+        arg_to_il_name[(*i).tok.value] = j;
+    } 
+    function_definitions[generate_name(this->type, this->name.value, this->args)] = {this->type, this->name.value, defined, this->args, std::move(arg_to_il_name), j};
 }
 
 void DeclNode::visit_symt()

@@ -8,21 +8,26 @@ int test()
     return ret + t - 8;
 }
 
-// int spread(int x)
-// {
-//     for (int i = 0; i < 4; i++)
-//     {
-//         x = x + i / 4;
-//     }
-
-//     return x;
-// }
-
-int* blah(int* x)
+int spread(int x)
 {
-    int y = spread(*x);
-    x = &y;
+    for (int i = 0; i < 4; i++)
+    {
+        x = x + i / 4;
+    }
+
+    float y = 2.3;
+    volatile int x1 = !y;
+    x1 = -y;
+    int z = x1++ + 3;
+
     return x;
+}
+
+int* blah(int* t)
+{
+    int y = spread(*t);
+    t = &y;
+    return t;
 }
 
 float test1()
