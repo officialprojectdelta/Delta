@@ -66,67 +66,6 @@ Type impl_cast(const Type& lhs, const Type& rhs)
     return {TypeKind::NULLTP};
 }
 
-// Does implicit casting of types on an expression (takes 2 input types)
-// Returns notype if not a match
-Type expl_cast(const Type& lhs, const Type& rhs)
-{
-    // Check if identical
-    if (lhs == rhs) return lhs;
-
-    if (lhs.t_kind == TypeKind::FLOAT)
-    {
-        if (rhs.t_kind == TypeKind::FLOAT)
-        {
-            if (rhs.size_of > lhs.size_of)
-            {
-                return rhs;
-            }
-            else
-            {
-                return lhs;
-            }
-        }
-        else if (rhs.t_kind == TypeKind::INT)
-        {
-            if (rhs.size_of > lhs.size_of)
-            {
-                return {TypeKind::FLOAT, rhs.size_of};
-            }
-            else
-            {
-                return lhs;
-            }
-        }
-    }
-    else if (lhs.t_kind == TypeKind::INT)
-    {
-        if (rhs.t_kind == TypeKind::FLOAT)
-        {
-            if (rhs.size_of > lhs.size_of)
-            {
-                return rhs;
-            }
-            else
-            {
-                return {TypeKind::FLOAT, lhs.size_of};
-            }
-        }
-        else if (rhs.t_kind == TypeKind::INT)
-        {
-            if (rhs.size_of > lhs.size_of)
-            {
-                return rhs;
-            }
-            else
-            {
-                return lhs;
-            }
-        }
-    }
-
-    return {TypeKind::NULLTP};
-}
-
 // Generates an explicit type (ie from a variable declaration or a cast)
 Type gen_expl_type(Tokenizer& tokens)
 {
@@ -148,6 +87,15 @@ Type gen_expl_type(Tokenizer& tokens)
             return {TypeKind::NULLTP};
         }
     }
+}
+
+// Does an explicit cast
+Type expl_cast(const Type& t1, const Type& t2)
+{
+    if (t1 == t2) return t1;
+    
+    if (t1.t_kind == TypeKind::FLOAT || t2.t_kind == TypeKind::FLOAT) { return {TypeKind::FLOAT, (t1.size_of > t2.size_of) ? t1.size_of : t2.size_of};}
+    else { return {TypeKind::INT, (t1.size_of > t2.size_of) ? t1.size_of : t2.size_of};}
 }
 
 std::string to_string(Type type)

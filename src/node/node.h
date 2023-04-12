@@ -128,7 +128,7 @@ struct FunctionNode : Node
     Token name;
 
     // List of arguments
-    std::list<ArgNode> args;
+    std::vector<ArgNode> args;
 
     // List of every node (instruction) going forward
     BlockStmtNode statements;

@@ -4,6 +4,7 @@
 #include "lexer/lexer.h"
 #include "parser/parser.h"
 #include "symt/symt.h"
+#include "codegen/codegen.h"
 // #include "error/error.h"
 #include "util.h"
 
@@ -15,10 +16,12 @@ int main(int argc, char** argv)
     {
         auto startTm = std::chrono::high_resolution_clock::now();
         auto tokens = scan(read_file(argv[1]));
+        std::cout << "tokens scanned" << std::endl;
         Node* node = parse_program(tokens);
-        std::string output;
+        std::cout << "program parsed" << std::endl;
         generate_symtables(node);
-        // write_file(argv[2], codegen(node, table));
+        std::cout << "symtables generated" << std::endl;
+        write_file(argv[2], codegen(node));
         std::cout << "Elapsed Time: " << (std::chrono::high_resolution_clock::now() - startTm).count() << "ns" << std::endl;
     }
     catch (compiler_error& e)

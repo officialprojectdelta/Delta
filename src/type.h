@@ -23,6 +23,14 @@ struct Type
     operator bool() { return t_kind != TypeKind::NULLTP; }
 };
 
+struct TwoType
+{
+    Type lhs;
+    Type rhs;
+
+    bool operator==(const TwoType& type) const { return this->lhs == type.lhs && this->rhs == type.rhs; }
+};
+
 template <class T>
 inline size_t hash_combine(size_t seed, const T& v)
 {
@@ -36,6 +44,14 @@ namespace std {
         inline size_t operator()(const Type& type) const {
             std::hash<TypeKind> hasher;
             return hash_combine(hasher(type.t_kind), type.size_of);
+        }
+    };
+
+    template<>
+    struct hash<TwoType> {
+        inline size_t operator()(const TwoType& type) const {
+            std::hash<Type> hasher;
+            return hash_combine(hasher(type.lhs), type.rhs);
         }
     };
 }

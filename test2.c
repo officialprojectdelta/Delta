@@ -19,12 +19,14 @@ int spread(int x)
     volatile int x1 = !y;
     x1 = -y;
     int z = x1++ + 3;
+    short three = z;
 
     return x;
 }
 
 int* blah(int* t)
 {
+    int** test = &t;
     int y = spread(*t);
     t = &y;
     return t;
@@ -36,5 +38,6 @@ float test1()
     x += 8;
     x += 2.9;
     int y = 23;
+    t = 9;
     return x + y;
 }

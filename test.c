@@ -1,6 +1,18 @@
-int test()
+int global = 42;
+
+int test1(int x)
+{
+    return x + 4;
+}
+
+int main()
 {
     int x = 4;
-    if (x < 7) return 3;
-    else return x / 2;
+    x = global;
+    float g = 2.3;
+    if (x == 4)
+    {
+        x = test1(x);
+    }
+    return x;
 }

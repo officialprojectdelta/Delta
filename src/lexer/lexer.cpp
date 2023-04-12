@@ -106,13 +106,13 @@ Tokenizer scan(std::string data)
                 // Create a string with all of the characters until a break (whitespace or a non number character)
                 numstr.push_back(data[i]);
                 i++;
-            } while (strchr(DIGITS, data[i]));
+            } while (strchr(DIGITS, data[i]) || data[i] == '.');
 
             // Can't have character in a number
             if (strchr(ALPHABET, data[i])) throw compiler_error("%c is not an expected digit", data[i]);
             
             // Create the number token
-            Token create = map["[integer]"];
+            Token create = numstr.find('.') != std::string::npos ? map["[float]"] : map["[integer]"];
             create.value = numstr;
             tokens.push_back(create);
         }
