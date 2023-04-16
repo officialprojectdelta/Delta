@@ -158,6 +158,8 @@ void FunctionNode::visit(std::string* write)
 
 void NoExpr::visit(std::string* write)
 {
+    result = "";
+    result_type = Type{TypeKind::NULLTP, 0};
     return;
 }
 
@@ -215,6 +217,7 @@ void UnaryOpNode::visit(std::string* write)
             if (result_type.t_kind == TypeKind::FLOAT) op.insert(op.begin(), 'f');
 
             sprinta(write, "    %", next_temp++, " = ", op, " ", type_to_il_str[result_type], " ", result, ", 1", after_decimal[result_type.t_kind], "\n");
+            sprinta(write, "    store ", type_to_il_str[result_type], " %", next_temp - 1, ", ", type_to_il_str[result_type], "* ", location, ", align ", result_type.size_of, "\n");
             if (this->op == NodeKind::PREFIXINC || this->op == NodeKind::PREFIXDEC) sprinta(&result, "%", next_temp - 1);
             if (this->op == NodeKind::POSTFIXINC || this->op == NodeKind::POSTFIXDEC) sprinta(&result, "%", next_temp - 2);
             break;
@@ -237,10 +240,10 @@ void BinaryOpNode::visit(std::string* write)
     std::unordered_map<NodeKind, std::string> cmp_op_to_str({
         {NodeKind::EQ, "eq"},
         {NodeKind::NOTEQ, "neq"},
-        {NodeKind::GREATER, "sgt"},
-        {NodeKind::GREATEREQ, "sge"},
-        {NodeKind::LESS, "slt"},
-        {NodeKind::LESSEQ, "sle"},
+        {NodeKind::GREATER, "gt"},
+        {NodeKind::GREATEREQ, "ge"},
+        {NodeKind::LESS, "lt"},
+        {NodeKind::LESSEQ, "le"},
     });
 
     // Convert types
@@ -500,24 +503,111 @@ void IfNode::visit(std::string* write)
 
 void ForNode::visit(std::string* write)
 {
-    sprinta(write, "For\n");
-
     initial->visit(write);
     location = "";
+
+    var_map.emplace_back();
+
+    size_t begin_loop = next_temp++;
+    sprinta(write, "    br label %", begin_loop, "\n\n");
+    sprinta(write, begin_loop, ":\n");
+
     condition->visit(write);
     location = "";
-    end->visit(write);
+
+    // Make sure that we are branching with a boolean value
+    if (result_type != Type{TypeKind::INT, 1} && result_type != Type{TypeKind::NULLTP, 0}) 
+    {
+        if (result_type.t_kind == TypeKind::INT) sprinta(write, "    %", next_temp++, " = icmp ne ", type_to_il_str[result_type], " ", result, ", 0\n");
+        else if (result_type.t_kind == TypeKind::FLOAT) sprinta(write, "    %", next_temp++, " = fcmp une ", type_to_il_str[result_type], " ", result, ", 0.000000e+00\n");
+        else throw compiler_error("Invalid type %s\n", type_to_il_str[result_type].c_str());
+
+        result = "%" + std::to_string(next_temp - 1);
+        result_type = Type{TypeKind::INT, 1};
+    }
+    else if (result_type == Type{TypeKind::NULLTP, 0})
+    {
+        result = "1";
+        result_type = Type{TypeKind::INT, 1};
+    }
+
+    std::string condition_loc = result;
+    size_t check_condition = next_temp++;
+    std::string execute;
+
+    statement->visit(&execute);
     location = "";
-    statement->visit(write);
+    end->visit(&execute);
     location = "";
+
+    sprinta(write, "    br i1 ", condition_loc, ", label %", check_condition, ", label %", next_temp, "\n\n");
+    sprinta(write, check_condition, ":\n");
+    sprinta(write, execute);
+    sprinta(write, "    br label %", begin_loop, "\n\n");
+    sprinta(write, next_temp++, ":\n");
+
+    var_map.pop_back();
 }
 
 void WhileNode::visit(std::string* write)
 {
-    sprinta(write, "While\n");
-
     condition->visit(write);
     location = "";
     statement->visit(write);
     location = "";
+
+    size_t begin_loop = next_temp++;
+    sprinta(write, "    br label %", begin_loop, "\n\n");
+    sprinta(write, begin_loop, ":\n");
+
+    if (do_on)
+    {
+        statement->visit(write);
+        location = "";
+        condition->visit(write);
+        location = "";
+
+        // Make sure that we are branching with a boolean value
+        if (result_type != Type{TypeKind::INT, 1}) 
+        {
+            if (result_type.t_kind == TypeKind::INT) sprinta(write, "    %", next_temp++, " = icmp ne ", type_to_il_str[result_type], " ", result, ", 0\n");
+            else if (result_type.t_kind == TypeKind::FLOAT) sprinta(write, "    %", next_temp++, " = fcmp une ", type_to_il_str[result_type], " ", result, ", 0.000000e+00\n");
+            else throw compiler_error("Invalid type %s\n", type_to_il_str[result_type].c_str());
+
+            result = "%" + std::to_string(next_temp - 1);
+            result_type = Type{TypeKind::INT, 1};
+        }
+
+        sprinta(write, "    br i1 ", result, ", label %", begin_loop, ", label %", next_temp, "\n\n");
+        sprinta(write, next_temp++, ":\n");
+    }
+    else
+    {
+        condition->visit(write);
+        location = "";
+
+        // Make sure that we are branching with a boolean value
+        if (result_type != Type{TypeKind::INT, 1}) 
+        {
+            if (result_type.t_kind == TypeKind::INT) sprinta(write, "    %", next_temp++, " = icmp ne ", type_to_il_str[result_type], " ", result, ", 0\n");
+            else if (result_type.t_kind == TypeKind::FLOAT) sprinta(write, "    %", next_temp++, " = fcmp une ", type_to_il_str[result_type], " ", result, ", 0.000000e+00\n");
+            else throw compiler_error("Invalid type %s\n", type_to_il_str[result_type].c_str());
+
+            result = "%" + std::to_string(next_temp - 1);
+            result_type = Type{TypeKind::INT, 1};
+        }
+
+        std::string condition_loc = result;
+        size_t check_condition = next_temp++;
+        std::string execute;
+
+        statement->visit(&execute);
+        location = "";
+
+        sprinta(write, "    br i1 ", condition_loc, ", label %", check_condition, ", label %", next_temp, "\n\n");
+        sprinta(write, check_condition, ":\n");
+        sprinta(write, execute);
+        sprinta(write, "    br label %", begin_loop, "\n\n");
+        sprinta(write, next_temp++, ":\n");
+    }
 }
