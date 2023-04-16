@@ -1,4 +1,7 @@
-
+MAIN THINGS (coming soon)
+-Pointers
+-More types
+-Structs
 
 
 Non-crucial
@@ -6,3 +9,4 @@ Things that might be nice in the future, but not currently implemented
 Not high up on the list of features
 NSW and NUW
 Nice errors
+C++ style function declaration (can declare a function with same name but different types in arguments)
