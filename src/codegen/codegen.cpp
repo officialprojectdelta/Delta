@@ -64,6 +64,19 @@ std::string codegen(Node* node)
     var_map.emplace_back();
     node->visit(&output);
     var_map.pop_back();
+
+    // Fix double branches
+    size_t i = output.find("    br label");
+    while (i != std::string::npos)
+    {
+        size_t j = output.find("    br", i + 12);
+        size_t k = output.find(":", i);
+
+        if (j == std::string::npos) break;
+        if (k > j) output.erase(j, output.find("\n", j) - j + 1);
+        i = j;
+    }
+
     return output;
 }
 
@@ -239,7 +252,7 @@ void BinaryOpNode::visit(std::string* write)
 
     std::unordered_map<NodeKind, std::string> cmp_op_to_str({
         {NodeKind::EQ, "eq"},
-        {NodeKind::NOTEQ, "neq"},
+        {NodeKind::NOTEQ, "ne"},
         {NodeKind::GREATER, "gt"},
         {NodeKind::GREATEREQ, "ge"},
         {NodeKind::LESS, "lt"},
@@ -433,12 +446,14 @@ void DeclNode::visit(std::string* write)
 
 void BreakNode::visit(std::string* write)
 {
-    sprinta(write, "Break\n");
+    // Stupid hacks
+    sprinta(write, "{break}\n");
 }
 
 void ContinueNode::visit(std::string* write)
 {
-    sprinta(write, "Continue\n");
+    // Stupid hacks
+    sprinta(write, "{continue}\n");
 }
 
 void RetNode::visit(std::string* write)
@@ -540,6 +555,16 @@ void ForNode::visit(std::string* write)
     end->visit(&execute);
     location = "";
 
+    size_t i = execute.find("{break}");
+    while (i != std::string::npos)
+    {
+        execute.erase(i, 7);
+        std::string input_this;
+        sprinta(&input_this, "    br label %", next_temp, "\n\n");
+        execute.insert(i, input_this);
+        i = execute.find("{break}", i);
+    }
+
     sprinta(write, "    br i1 ", condition_loc, ", label %", check_condition, ", label %", next_temp, "\n\n");
     sprinta(write, check_condition, ":\n");
     sprinta(write, execute);
@@ -551,11 +576,6 @@ void ForNode::visit(std::string* write)
 
 void WhileNode::visit(std::string* write)
 {
-    condition->visit(write);
-    location = "";
-    statement->visit(write);
-    location = "";
-
     size_t begin_loop = next_temp++;
     sprinta(write, "    br label %", begin_loop, "\n\n");
     sprinta(write, begin_loop, ":\n");
@@ -576,6 +596,16 @@ void WhileNode::visit(std::string* write)
 
             result = "%" + std::to_string(next_temp - 1);
             result_type = Type{TypeKind::INT, 1};
+        }
+
+        size_t i = write->find("{break}");
+        while (i != std::string::npos)
+        {
+            write->erase(i, 7);
+            std::string input_this;
+            sprinta(write, "    br label %", next_temp);
+            write->insert(i, input_this);
+            i = write->find("{break}", i);
         }
 
         sprinta(write, "    br i1 ", result, ", label %", begin_loop, ", label %", next_temp, "\n\n");
@@ -603,6 +633,26 @@ void WhileNode::visit(std::string* write)
 
         statement->visit(&execute);
         location = "";
+
+        size_t i = execute.find("{break}");
+        while (i != std::string::npos)
+        {
+            execute.erase(i, 7);
+            std::string input_this;
+            sprinta(&input_this, "    br label %", next_temp);
+            execute.insert(i, input_this);
+            i = execute.find("{break}", i);
+        }
+
+        size_t i = execute.find("{continue}");
+        while (i != std::string::npos)
+        {
+            execute.erase(i, 10);
+            std::string input_this;
+            sprinta(&input_this, "    br label %", begin_loop);
+            execute.insert(i, input_this);
+            i = execute.find("{continue}", i);
+        }
 
         sprinta(write, "    br i1 ", condition_loc, ", label %", check_condition, ", label %", next_temp, "\n\n");
         sprinta(write, check_condition, ":\n");
