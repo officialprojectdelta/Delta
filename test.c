@@ -11,22 +11,11 @@ int test()
     x = global;
     x = test1(x);
 
-    while (x != 4)
+    for (int i = 0; i < 5; i++)
     {
-        x--;
-        if (x) 
-        {
-            if (1 == 0) break;
-        }
+        if (i == 4) continue;
+        x = x * 2;
     }
-
-    do {
-        x--;
-        if (x) 
-        {
-            if (1 == 0) break;
-        }
-    } while (x != 4);
 
     return x;
 }

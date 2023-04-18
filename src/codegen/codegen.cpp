@@ -24,7 +24,7 @@ std::string location;
 // The return type of the function (for return statements)
 Type return_type;
 
-// The stack declared variables and lables, (the vector is for multiple stack frames)
+// The stack declared variables and labels, (the vector is for multiple stack frames)
 std::vector<std::unordered_map<std::string, std::pair<std::string, Type>>> var_map;
 
 std::unordered_map<TypeKind, std::string> after_decimal({
@@ -480,7 +480,7 @@ void IfNode::visit(std::string* write)
     }
     
     // Do the first branch
-    size_t lable_save = next_temp;
+    size_t label_save = next_temp;
     sprinta(write, "    br i1 ", result, ", label %", next_temp++, ", label %");
     
     // Save the code for the if true statement, so that next_temp gets incremented properly
@@ -488,28 +488,28 @@ void IfNode::visit(std::string* write)
     statement->visit(&if_true_execute);
     location = "";
 
-    // Save the lable for the end of the if true statment (leads to else or end)
-    sprinta(write, next_temp++, "\n\n", lable_save, ":\n");
-    lable_save = next_temp - 1;
+    // Save the label for the end of the if true statment (leads to else or end)
+    sprinta(write, next_temp++, "\n\n", label_save, ":\n");
+    label_save = next_temp - 1;
     
     // Save the code for the else statement, so that next_temp gets incremented properly (if there is one)
     std::string else_execute; 
     if (else_stmt) else_stmt->visit(&else_execute);
 
-    // Find our end lable (could be the old lable_save or the next_temp)
-    size_t end_lable = else_stmt ? next_temp++ : lable_save;
+    // Find our end label (could be the old label_save or the next_temp)
+    size_t end_label = else_stmt ? next_temp++ : label_save;
 
     // Print the code for the if true statement
     sprinta(write, if_true_execute);
-    sprinta(write, "    br label %", end_lable, "\n\n");
-    sprinta(write, lable_save, ":\n");
+    sprinta(write, "    br label %", end_label, "\n\n");
+    sprinta(write, label_save, ":\n");
     
     // Print the code for the if else statement (if there is one)
     if (else_stmt)
     {
         sprinta(write, else_execute);
-        sprinta(write, "    br label %", end_lable, "\n\n");
-        sprinta(write, end_lable, ":\n");
+        sprinta(write, "    br label %", end_label, "\n\n");
+        sprinta(write, end_label, ":\n");
         next_temp++;
     }
 
@@ -548,11 +548,16 @@ void ForNode::visit(std::string* write)
 
     std::string condition_loc = result;
     size_t check_condition = next_temp++;
+    size_t end_loop_label;
     std::string execute;
+    std::string end_loop;
 
     statement->visit(&execute);
     location = "";
-    end->visit(&execute);
+
+    end_loop_label = next_temp++;
+
+    end->visit(&end_loop);
     location = "";
 
     size_t i = execute.find("{break}");
@@ -560,14 +565,27 @@ void ForNode::visit(std::string* write)
     {
         execute.erase(i, 7);
         std::string input_this;
-        sprinta(&input_this, "    br label %", next_temp, "\n\n");
+        sprinta(&input_this, "    br label %", next_temp + 1, "\n\n");
         execute.insert(i, input_this);
         i = execute.find("{break}", i);
+    }
+
+    i = execute.find("{continue}");
+    while (i != std::string::npos)
+    {
+        execute.erase(i, 10);
+        std::string input_this;
+        sprinta(&input_this, "    br label %", next_temp, "\n\n");
+        execute.insert(i, input_this);
+        i = execute.find("{continue}", i);
     }
 
     sprinta(write, "    br i1 ", condition_loc, ", label %", check_condition, ", label %", next_temp, "\n\n");
     sprinta(write, check_condition, ":\n");
     sprinta(write, execute);
+    sprinta(write, "    br label %", end_loop_label, "\n\n");
+    sprinta(write, end_loop_label, ":\n");
+    sprinta(write, end_loop);
     sprinta(write, "    br label %", begin_loop, "\n\n");
     sprinta(write, next_temp++, ":\n");
 
@@ -608,6 +626,16 @@ void WhileNode::visit(std::string* write)
             i = write->find("{break}", i);
         }
 
+        i = write->find("{continue}");
+        while (i != std::string::npos)
+        {
+            write->erase(i, 10);
+            std::string input_this;
+            sprinta(&input_this, "    br label %", next_temp);
+            write->insert(i, input_this);
+            i = write->find("{continue}", i);
+        }
+
         sprinta(write, "    br i1 ", result, ", label %", begin_loop, ", label %", next_temp, "\n\n");
         sprinta(write, next_temp++, ":\n");
     }
@@ -644,7 +672,7 @@ void WhileNode::visit(std::string* write)
             i = execute.find("{break}", i);
         }
 
-        size_t i = execute.find("{continue}");
+        i = execute.find("{continue}");
         while (i != std::string::npos)
         {
             execute.erase(i, 10);
