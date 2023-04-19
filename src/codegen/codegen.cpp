@@ -21,6 +21,9 @@ Type result_type;
 // An additional result string for variable to put their actual location
 std::string location;
 
+// An additional value string for literals before they are converted into llvm form
+std::string literal_value;
+
 // The return type of the function (for return statements)
 Type return_type;
 
@@ -52,7 +55,8 @@ void cast(std::string* write, Type dst, Type src, std::string temp_to_cast)
     sprinta(write, "    %", next_temp++, " = ", cast_map[{src, dst}], " ", type_to_il_str[src], " ", temp_to_cast, " to ", type_to_il_str[dst], "\n");
     result = "%" + std::to_string(next_temp - 1);
     result_type = dst;
-    location = "";
+    location = ""; 
+    literal_value = "";
 }
 
 std::string return_str(Type type)
@@ -237,7 +241,8 @@ void UnaryOpNode::visit(std::string* write)
         }
     }
 
-    location = "";
+    location = ""; 
+    literal_value = "";
 }
 
 void BinaryOpNode::visit(std::string* write)
@@ -264,12 +269,14 @@ void BinaryOpNode::visit(std::string* write)
     std::string lhs_result = result;
     Type lhs_type = result_type;
     std::string lhs_location = location;
-    location = "";
+    location = ""; 
+    literal_value = "";
 
     rhs->visit(write);
     std::string rhs_result = result;
     Type rhs_type = result_type;
-    location = "";
+    location = ""; 
+    literal_value = "";
 
     if (arith_op_to_str.contains(op) || cmp_op_to_str.contains(op))
     {
@@ -293,7 +300,7 @@ void BinaryOpNode::visit(std::string* write)
             if (op == NodeKind::DIV) before_char = "s";
             if (convert_to.t_kind == TypeKind::FLOAT) before_char = "f";
             // Output operation
-            sprinta(write, "    %", next_temp++, " = ", before_char, "nsw", arith_op_to_str[op], " ", type_to_il_str[convert_to], " ", lhs_result, ", ", rhs_result, "\n");
+            sprinta(write, "    %", next_temp++, " = ", before_char, arith_op_to_str[op], " ", type_to_il_str[convert_to], " ", lhs_result, ", ", rhs_result, "\n");
             result = "%" + std::to_string(next_temp - 1);
         } 
         else
@@ -328,7 +335,8 @@ void BinaryOpNode::visit(std::string* write)
         sprinta(write, "    store ", type_to_il_str[result_type], " ", result, ", ", type_to_il_str[result_type], "* ", lhs_location, ", align ", result_type.size_of, "\n");
     }
 
-    location = "";
+    location = ""; 
+    literal_value = "";
 }
 
 void TernNode::visit(std::string* write)
@@ -342,6 +350,7 @@ void TernNode::visit(std::string* write)
 
 void LiteralNode::visit(std::string* write)
 {
+    literal_value = this->value.value;
     result = this->value.value;
     if (this->type.t_kind == TypeKind::FLOAT) 
     {
@@ -356,7 +365,7 @@ void LiteralNode::visit(std::string* write)
         }
     }
     result_type = this->type;
-    location = "";
+    location = ""; 
 }
 
 void VarNode::visit(std::string* write)
@@ -407,7 +416,8 @@ void FuncallNode::visit(std::string* write)
 
     result = "%" + std::to_string(next_temp - 1);
     result_type = function_definitions[this->name.value].type;
-    location = "";
+    location = ""; 
+    literal_value = "";
 }
 
 void DeclNode::visit(std::string* write)
@@ -420,6 +430,43 @@ void DeclNode::visit(std::string* write)
         if (assign) 
         {
             assign->visit(write);
+            if (result[0] != '%')
+            {
+                if (result_type != type)
+                {
+                    switch (type.t_kind)
+                    {
+                        case TypeKind::INT:
+                        {
+                            if (result_type.t_kind == TypeKind::FLOAT)
+                            {
+                                result = ((int) std::stod(literal_value));
+                            }
+                            if (result_type.t_kind == TypeKind::INT)
+                            {
+                                result = ((char) std::stoi(literal_value));
+                            }
+                        }
+                        case TypeKind::FLOAT:
+                        {
+                            if (result_type.t_kind == TypeKind::INT) 
+                            {
+                                double value = std::stod(literal_value);
+                                std::stringstream sstr;
+                                sstr << "0x" << std::hex << *(size_t*)&value;
+                                result = sstr.str();
+                                if (type.size_of == 4) 
+                                {
+                                    result = result.substr(0, 11);
+                                    result.append("0000000");
+                                }
+                            }
+                            else throw compiler_error("Cannot assign global variable to a literal\n");
+                        }
+                    }
+                }
+            }
+            else throw compiler_error("Cannot assign global variable to a literal\n");
             sprinta(write, result);
         }
         else sprinta(write, "0", after_decimal[type.t_kind]);
@@ -466,7 +513,8 @@ void RetNode::visit(std::string* write)
 void IfNode::visit(std::string* write)
 {
     condition->visit(write);
-    location = "";
+    location = ""; 
+    literal_value = "";
     
     // Make sure that we are branching with a boolean value
     if (result_type != Type{TypeKind::BOOL, 1}) 
@@ -486,7 +534,8 @@ void IfNode::visit(std::string* write)
     // Save the code for the if true statement, so that next_temp gets incremented properly
     std::string if_true_execute;
     statement->visit(&if_true_execute);
-    location = "";
+    location = ""; 
+    literal_value = "";
 
     // Save the label for the end of the if true statment (leads to else or end)
     sprinta(write, next_temp++, "\n\n", label_save, ":\n");
@@ -513,13 +562,15 @@ void IfNode::visit(std::string* write)
         next_temp++;
     }
 
-    location = "";
+    location = ""; 
+    literal_value = "";
 }
 
 void ForNode::visit(std::string* write)
 {
     initial->visit(write);
-    location = "";
+    location = ""; 
+    literal_value = "";
 
     var_map.emplace_back();
 
@@ -528,7 +579,8 @@ void ForNode::visit(std::string* write)
     sprinta(write, begin_loop, ":\n");
 
     condition->visit(write);
-    location = "";
+    location = ""; 
+    literal_value = "";
 
     // Make sure that we are branching with a boolean value
     if (result_type != Type{TypeKind::BOOL, 1} && result_type != Type{TypeKind::NULLTP, 0}) 
@@ -553,12 +605,14 @@ void ForNode::visit(std::string* write)
     std::string end_loop;
 
     statement->visit(&execute);
-    location = "";
+    location = ""; 
+    literal_value = "";
 
     end_loop_label = next_temp++;
 
     end->visit(&end_loop);
-    location = "";
+    location = ""; 
+    literal_value = "";
 
     size_t i = execute.find("{break}");
     while (i != std::string::npos)
@@ -601,9 +655,11 @@ void WhileNode::visit(std::string* write)
     if (do_on)
     {
         statement->visit(write);
-        location = "";
+        location = ""; 
+        literal_value = "";
         condition->visit(write);
-        location = "";
+        location = ""; 
+        literal_value = "";
 
         // Make sure that we are branching with a boolean value
         if (result_type != Type{TypeKind::BOOL, 1}) 
@@ -642,7 +698,8 @@ void WhileNode::visit(std::string* write)
     else
     {
         condition->visit(write);
-        location = "";
+        location = ""; 
+        literal_value = "";
 
         // Make sure that we are branching with a boolean value
         if (result_type != Type{TypeKind::BOOL, 1}) 
@@ -660,7 +717,8 @@ void WhileNode::visit(std::string* write)
         std::string execute;
 
         statement->visit(&execute);
-        location = "";
+        location = ""; 
+        literal_value = "";
 
         size_t i = execute.find("{break}");
         while (i != std::string::npos)

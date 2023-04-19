@@ -1,6 +1,6 @@
 @global = dso_local global i32 42, align 4
 
-@gb2 = dso_local global i8 3213, align 1
+@gb2 = dso_local global i8 0x40a91a0000000000, align 1
 
 define dso_local i32 @test1(i32 %0) {
     %2 = alloca i32, align 4
