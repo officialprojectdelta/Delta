@@ -16,13 +16,10 @@ int main(int argc, char** argv)
     {
         auto startTm = std::chrono::high_resolution_clock::now();
         auto tokens = scan(read_file(argv[1]));
-        std::cout << "tokens scanned" << std::endl;
         Node* node = parse_program(tokens);
-        std::cout << "program parsed" << std::endl;
         generate_symtables(node);
-        std::cout << "symtables generated" << std::endl;
         write_file(argv[2], codegen(node));
-        std::cout << "Elapsed Time: " << (std::chrono::high_resolution_clock::now() - startTm).count() << "ns" << std::endl;
+        std::cout << "Elapsed Time: " << (double) (std::chrono::high_resolution_clock::now() - startTm).count() / (double) 1000000 << "ms" << std::endl;
     }
     catch (compiler_error& e)
     {

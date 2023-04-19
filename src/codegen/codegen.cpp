@@ -35,7 +35,8 @@ std::unordered_map<TypeKind, std::string> after_decimal({
 std::unordered_map<Type, std::string> type_to_il_str({
     {Type{TypeKind::INT, 4}, "i32"},
     {Type{TypeKind::FLOAT, 4}, "float"},
-    {Type{TypeKind::INT, 1}, "i1"},
+    {Type{TypeKind::INT, 1}, "i8"},
+    {Type{TypeKind::BOOL, 1}, "i1"},
 });
 
 void cast(std::string* write, Type dst, Type src, std::string temp_to_cast)
@@ -194,12 +195,12 @@ void UnaryOpNode::visit(std::string* write)
             if (result_type.t_kind == TypeKind::FLOAT)
             {
                 sprinta(write, "    %", next_temp, " = fneg ", type_to_il_str[result_type], result, "\n");
-                sprinta(&result, "%", next_temp++);
+                result = "%" + std::to_string(next_temp++);
             }
             else
             {
                 sprinta(write, "    %", next_temp, " = sub ", type_to_il_str[result_type], " 0, ",  result, "\n");
-                sprinta(&result, "%", next_temp++);
+                result = "%" + std::to_string(next_temp++);
             }
             break;
         }
@@ -214,8 +215,7 @@ void UnaryOpNode::visit(std::string* write)
             sprinta(write, "    %", next_temp, " = xor i1 %", next_temp - 1, ", true\n");
             next_temp++;
             sprinta(write, "    %", next_temp, " = zext i1 %", next_temp - 1, " to i32\n");
-            next_temp++;
-            sprinta(&result, "%", next_temp);
+            result = "%" + std::to_string(next_temp++);
             result_type = {TypeKind::INT, 4};
             break;
         }
@@ -231,8 +231,8 @@ void UnaryOpNode::visit(std::string* write)
 
             sprinta(write, "    %", next_temp++, " = ", op, " ", type_to_il_str[result_type], " ", result, ", 1", after_decimal[result_type.t_kind], "\n");
             sprinta(write, "    store ", type_to_il_str[result_type], " %", next_temp - 1, ", ", type_to_il_str[result_type], "* ", location, ", align ", result_type.size_of, "\n");
-            if (this->op == NodeKind::PREFIXINC || this->op == NodeKind::PREFIXDEC) sprinta(&result, "%", next_temp - 1);
-            if (this->op == NodeKind::POSTFIXINC || this->op == NodeKind::POSTFIXDEC) sprinta(&result, "%", next_temp - 2);
+            if (this->op == NodeKind::PREFIXINC || this->op == NodeKind::PREFIXDEC) result = "%" + std::to_string(next_temp - 1);
+            if (this->op == NodeKind::POSTFIXINC || this->op == NodeKind::POSTFIXDEC) result = "%" + std::to_string(next_temp - 2);
             break;
         }
     }
@@ -293,7 +293,7 @@ void BinaryOpNode::visit(std::string* write)
             if (op == NodeKind::DIV) before_char = "s";
             if (convert_to.t_kind == TypeKind::FLOAT) before_char = "f";
             // Output operation
-            sprinta(write, "    %", next_temp++, " = ", before_char, arith_op_to_str[op], " ", type_to_il_str[convert_to], " ", lhs_result, ", ", rhs_result, "\n");
+            sprinta(write, "    %", next_temp++, " = ", before_char, "nsw", arith_op_to_str[op], " ", type_to_il_str[convert_to], " ", lhs_result, ", ", rhs_result, "\n");
             result = "%" + std::to_string(next_temp - 1);
         } 
         else
@@ -318,7 +318,7 @@ void BinaryOpNode::visit(std::string* write)
 
             sprinta(write, "    %", next_temp++, " = ", before_char, "cmp ", before_cmp_char, cmp_op_to_str[op], " ", type_to_il_str[convert_to], " ", lhs_result, ", ", rhs_result, "\n");
             result = "%" + std::to_string(next_temp - 1);
-            result_type = {TypeKind::INT, 1};
+            result_type = {TypeKind::BOOL, 1};
         }
     }
     else
@@ -469,14 +469,14 @@ void IfNode::visit(std::string* write)
     location = "";
     
     // Make sure that we are branching with a boolean value
-    if (result_type != Type{TypeKind::INT, 1}) 
+    if (result_type != Type{TypeKind::BOOL, 1}) 
     {
         if (result_type.t_kind == TypeKind::INT) sprinta(write, "    %", next_temp++, " = icmp ne ", type_to_il_str[result_type], " ", result, ", 0\n");
         else if (result_type.t_kind == TypeKind::FLOAT) sprinta(write, "    %", next_temp++, " = fcmp une ", type_to_il_str[result_type], " ", result, ", 0.000000e+00\n");
         else throw compiler_error("Invalid type %s\n", type_to_il_str[result_type].c_str());
 
         result = "%" + std::to_string(next_temp - 1);
-        result_type = Type{TypeKind::INT, 1};
+        result_type = Type{TypeKind::BOOL, 1};
     }
     
     // Do the first branch
@@ -531,7 +531,7 @@ void ForNode::visit(std::string* write)
     location = "";
 
     // Make sure that we are branching with a boolean value
-    if (result_type != Type{TypeKind::INT, 1} && result_type != Type{TypeKind::NULLTP, 0}) 
+    if (result_type != Type{TypeKind::BOOL, 1} && result_type != Type{TypeKind::NULLTP, 0}) 
     {
         if (result_type.t_kind == TypeKind::INT) sprinta(write, "    %", next_temp++, " = icmp ne ", type_to_il_str[result_type], " ", result, ", 0\n");
         else if (result_type.t_kind == TypeKind::FLOAT) sprinta(write, "    %", next_temp++, " = fcmp une ", type_to_il_str[result_type], " ", result, ", 0.000000e+00\n");
@@ -606,14 +606,14 @@ void WhileNode::visit(std::string* write)
         location = "";
 
         // Make sure that we are branching with a boolean value
-        if (result_type != Type{TypeKind::INT, 1}) 
+        if (result_type != Type{TypeKind::BOOL, 1}) 
         {
             if (result_type.t_kind == TypeKind::INT) sprinta(write, "    %", next_temp++, " = icmp ne ", type_to_il_str[result_type], " ", result, ", 0\n");
             else if (result_type.t_kind == TypeKind::FLOAT) sprinta(write, "    %", next_temp++, " = fcmp une ", type_to_il_str[result_type], " ", result, ", 0.000000e+00\n");
             else throw compiler_error("Invalid type %s\n", type_to_il_str[result_type].c_str());
 
             result = "%" + std::to_string(next_temp - 1);
-            result_type = Type{TypeKind::INT, 1};
+            result_type = Type{TypeKind::BOOL, 1};
         }
 
         size_t i = write->find("{break}");
@@ -645,14 +645,14 @@ void WhileNode::visit(std::string* write)
         location = "";
 
         // Make sure that we are branching with a boolean value
-        if (result_type != Type{TypeKind::INT, 1}) 
+        if (result_type != Type{TypeKind::BOOL, 1}) 
         {
             if (result_type.t_kind == TypeKind::INT) sprinta(write, "    %", next_temp++, " = icmp ne ", type_to_il_str[result_type], " ", result, ", 0\n");
             else if (result_type.t_kind == TypeKind::FLOAT) sprinta(write, "    %", next_temp++, " = fcmp une ", type_to_il_str[result_type], " ", result, ", 0.000000e+00\n");
             else throw compiler_error("Invalid type %s\n", type_to_il_str[result_type].c_str());
 
             result = "%" + std::to_string(next_temp - 1);
-            result_type = Type{TypeKind::INT, 1};
+            result_type = Type{TypeKind::BOOL, 1};
         }
 
         std::string condition_loc = result;

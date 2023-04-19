@@ -43,6 +43,7 @@ std::unordered_map<std::string, Token> map({
     {"?", Token(TokenType::TERN)},
     {":", Token(TokenType::COLON)}, 
     {"int", Token(TokenType::TINT)},
+    {"char", Token(TokenType::TCHAR)},
     {"float", Token(TokenType::TFLOAT)}, 
     {"return", Token(TokenType::RET)}, 
     {"if", Token(TokenType::IF)}, 

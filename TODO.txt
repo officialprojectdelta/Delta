@@ -1,4 +1,5 @@
 MAIN THINGS (coming soon)
+-Assembly
 -Pointers
 -More types
 -Structs

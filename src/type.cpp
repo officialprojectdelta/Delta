@@ -30,47 +30,16 @@ Type gen_const_type(Tokenizer& tokens)
     }
 }
 
-// Checks if cast of the 2 types
-// Returns notype if not
-Type impl_cast(const Type& lhs, const Type& rhs)
-{
-    // Make sure it isn't a narrow
-    if (rhs.size_of > lhs.size_of) return {TypeKind::NULLTP};
-    
-    // Check if identical
-    if (lhs == rhs) return lhs;
-
-    if (lhs.t_kind == TypeKind::FLOAT)
-    {
-        if (rhs.t_kind == TypeKind::FLOAT)
-        {
-            return lhs;
-        }
-        else if (rhs.t_kind == TypeKind::INT)
-        {
-            return rhs;
-        }
-    }
-    else if (lhs.t_kind == TypeKind::INT)
-    {
-        if (rhs.t_kind == TypeKind::FLOAT)
-        {
-            return lhs;
-        }
-        else if (rhs.t_kind == TypeKind::INT)
-        {
-            return rhs;
-        }
-    }
-
-    return {TypeKind::NULLTP};
-}
-
 // Generates an explicit type (ie from a variable declaration or a cast)
 Type gen_expl_type(Tokenizer& tokens)
 {
     switch (tokens.cur().type)
     {
+        case TokenType::TCHAR:
+        {
+            tokens.inc();
+            return {TypeKind::INT, 1};
+        }
         case TokenType::TINT:
         {
             tokens.inc();

@@ -1,4 +1,5 @@
 int global = 42;
+char gb2 = 3213;
 
 int test1(int x)
 {
@@ -7,15 +8,10 @@ int test1(int x)
 
 int test()
 {
+    char li = -5;
     int x = 4;
     x = global;
-    x = test1(x);
-
-    for (int i = 0; i < 5; i++)
-    {
-        if (i == 4) continue;
-        x = x * 2;
-    }
+    x = test1(x + li);
 
     return x;
 }

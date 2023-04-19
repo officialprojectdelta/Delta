@@ -35,6 +35,7 @@ enum class TokenType
     TERN, 
     COLON,
     TINT,
+    TCHAR,
     TFLOAT,
     RET,
     IF,
