@@ -1,14 +1,16 @@
 #include "lexer.h"
 
+#include "error/error.h"
+#include "util.h"
+
+// std
 #include <iostream>
 #include <string>
 #include <sstream>
 #include <unordered_map>
 #include <utility>
+#include <algorithm>
 #include <string.h>
-
-#include "error/error.h"
-#include "util.h"
 
 // Constants used to see if a string fits within a group
 #define DIGITS "0123456789"
@@ -42,8 +44,11 @@ std::unordered_map<std::string, Token> map({
     {">=", Token(TokenType::GREATEREQ)},
     {"?", Token(TokenType::TERN)},
     {":", Token(TokenType::COLON)}, 
+    {"long", Token(TokenType::TLONG)},
     {"int", Token(TokenType::TINT)},
+    {"short", Token(TokenType::TSHORT)},
     {"char", Token(TokenType::TCHAR)},
+    {"double", Token(TokenType::TDOUBLE)}, 
     {"float", Token(TokenType::TFLOAT)}, 
     {"return", Token(TokenType::RET)}, 
     {"if", Token(TokenType::IF)}, 
@@ -99,9 +104,10 @@ Tokenizer scan(std::string data)
                 tokens.back().value = str;
             }
         }  
-        else if (strchr(DIGITS, data[i])) 
+        else if (strchr(DIGITS, data[i]) || (data[i] == '-' && strchr(DIGITS, data[i + 1]))) 
         {
             std::string numstr;
+
             do 
             {
                 // Create a string with all of the characters until a break (whitespace or a non number character)
@@ -109,10 +115,11 @@ Tokenizer scan(std::string data)
                 i++;
             } while (strchr(DIGITS, data[i]) || data[i] == '.');
 
-            // Can't have character in a number
+            // Can't have character at end of number
             if (strchr(ALPHABET, data[i])) throw compiler_error("%c is not an expected digit", data[i]);
             
             // Create the number token
+            if (std::count(numstr.begin(), numstr.end(), '.') > 1) throw compiler_error("%s is not a valid literal\n", numstr.c_str()); 
             Token create = numstr.find('.') != std::string::npos ? map["[float]"] : map["[integer]"];
             create.value = numstr;
             tokens.push_back(create);

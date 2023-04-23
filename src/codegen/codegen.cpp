@@ -35,28 +35,75 @@ std::unordered_map<TypeKind, std::string> after_decimal({
     {TypeKind::INT, ""},
 });
 
-std::unordered_map<Type, std::string> type_to_il_str({
-    {Type{TypeKind::INT, 4}, "i32"},
-    {Type{TypeKind::FLOAT, 4}, "float"},
-    {Type{TypeKind::INT, 1}, "i8"},
-    {Type{TypeKind::BOOL, 1}, "i1"},
-});
-
 void cast(std::string* write, Type dst, Type src, std::string temp_to_cast)
 {
-    std::unordered_map<TwoType, std::string> cast_map({
-        {{Type{TypeKind::INT, 4}, Type{TypeKind::FLOAT, 4}}, "sitofp"},
-        {{Type{TypeKind::FLOAT, 4}, Type{TypeKind::INT, 4}}, "fptosi"},
-        {{Type{TypeKind::INT, 1}, Type{TypeKind::INT, 4}}, "zext"},
-        {{Type{TypeKind::INT, 4}, Type{TypeKind::INT, 1}}, "trunc"},
-    });
+    std::string cast;
 
-    if (!cast_map.contains({src, dst})) throw std::runtime_error("Cannot cast from " + type_to_il_str[src] + " to " + type_to_il_str[dst]);
-    sprinta(write, "    %", next_temp++, " = ", cast_map[{src, dst}], " ", type_to_il_str[src], " ", temp_to_cast, " to ", type_to_il_str[dst], "\n");
+    if (src.t_kind == TypeKind::FLOAT && dst.t_kind == TypeKind::FLOAT)
+    {
+        if (src.size_of > dst.size_of) cast = "fptrunc";
+        else cast = "fpext";
+    }
+    else if (src.t_kind == TypeKind::FLOAT) cast = "fptosi";
+    else if (dst.t_kind == TypeKind::FLOAT) cast = "sitofp";
+    else 
+    {
+        if (src.size_of > dst.size_of) cast = "trunc";
+        else cast = "sext";
+    }
+
+    sprinta(write, "    %", next_temp++, " = ", cast, " ", type_to_il_str[src], " ", temp_to_cast, " to ", type_to_il_str[dst], "\n");
     result = "%" + std::to_string(next_temp - 1);
     result_type = dst;
     location = ""; 
     literal_value = "";
+}
+
+void literal_cast(Type type)
+{
+    if (result[0] != '%' && result_type != type)
+    {
+        switch (type.t_kind)
+        {
+            case TypeKind::INT:
+            {
+                if (result_type.t_kind == TypeKind::FLOAT)
+                {
+                    if (type.size_of == 1) result = std::to_string((char) std::stod(literal_value));
+                    else if (type.size_of == 2) result = std::to_string((short) std::stod(literal_value));
+                    else if (type.size_of == 4) result = std::to_string((int) std::stod(literal_value));
+                    else result = std::to_string(std::stol(literal_value));
+                    result_type = type;
+                }
+
+                if (result_type.t_kind == TypeKind::INT)
+                {
+                    if (type.size_of > result_type.size_of)
+                    {
+                        result = std::to_string((int) std::stol(literal_value));
+                        result_type = type;
+                    }
+                    else 
+                    {
+                        if (type.size_of == 1) result = std::to_string((char) std::stol(literal_value));
+                        else if (type.size_of == 2) result = std::to_string((short) std::stol(literal_value));
+                        else if (type.size_of == 4) result = std::to_string((int) std::stol(literal_value));
+                        else result = std::to_string(std::stol(literal_value));
+
+                        result_type = type;
+                    }
+                }
+                break;
+            }
+            case TypeKind::FLOAT:
+            {
+                // For now no if statement is needed
+                result = strfloat_to_hexfloat(literal_value, type);
+                result_type = type;
+                break;
+            }
+        }
+    }
 }
 
 std::string return_str(Type type)
@@ -352,18 +399,7 @@ void LiteralNode::visit(std::string* write)
 {
     literal_value = this->value.value;
     result = this->value.value;
-    if (this->type.t_kind == TypeKind::FLOAT) 
-    {
-        double value = std::stod(this->value.value);
-        std::stringstream sstr;
-        sstr << "0x" << std::hex << *(size_t*)&value;
-        result = sstr.str();
-        if (this->type.size_of == 4) 
-        {
-            result = result.substr(0, 11);
-            result.append("0000000");
-        }
-    }
+    if (this->type.t_kind == TypeKind::FLOAT) result = strfloat_to_hexfloat(this->value.value, this->type);
     result_type = this->type;
     location = ""; 
 }
@@ -430,43 +466,7 @@ void DeclNode::visit(std::string* write)
         if (assign) 
         {
             assign->visit(write);
-            if (result[0] != '%')
-            {
-                if (result_type != type)
-                {
-                    switch (type.t_kind)
-                    {
-                        case TypeKind::INT:
-                        {
-                            if (result_type.t_kind == TypeKind::FLOAT)
-                            {
-                                result = ((int) std::stod(literal_value));
-                            }
-                            if (result_type.t_kind == TypeKind::INT)
-                            {
-                                result = ((char) std::stoi(literal_value));
-                            }
-                        }
-                        case TypeKind::FLOAT:
-                        {
-                            if (result_type.t_kind == TypeKind::INT) 
-                            {
-                                double value = std::stod(literal_value);
-                                std::stringstream sstr;
-                                sstr << "0x" << std::hex << *(size_t*)&value;
-                                result = sstr.str();
-                                if (type.size_of == 4) 
-                                {
-                                    result = result.substr(0, 11);
-                                    result.append("0000000");
-                                }
-                            }
-                            else throw compiler_error("Cannot assign global variable to a literal\n");
-                        }
-                    }
-                }
-            }
-            else throw compiler_error("Cannot assign global variable to a literal\n");
+            literal_cast(this->type);
             sprinta(write, result);
         }
         else sprinta(write, "0", after_decimal[type.t_kind]);
@@ -481,6 +481,7 @@ void DeclNode::visit(std::string* write)
         if (assign) 
         {
             assign->visit(write);
+            literal_cast(this->type);
             if (result_type != this->type) cast(write, this->type, result_type, result);
             sprinta(write, "    store ", type_to_il_str[this->type], " ", result, ", ", type_to_il_str[this->type], "* ", var_map.back()[this->name.value].first, ", align ", this->type.size_of, "\n");
         }
@@ -590,12 +591,12 @@ void ForNode::visit(std::string* write)
         else throw compiler_error("Invalid type %s\n", type_to_il_str[result_type].c_str());
 
         result = "%" + std::to_string(next_temp - 1);
-        result_type = Type{TypeKind::INT, 1};
+        result_type = Type{TypeKind::BOOL, 1};
     }
     else if (result_type == Type{TypeKind::NULLTP, 0})
     {
         result = "1";
-        result_type = Type{TypeKind::INT, 1};
+        result_type = Type{TypeKind::BOOL, 1};
     }
 
     std::string condition_loc = result;

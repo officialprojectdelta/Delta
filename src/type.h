@@ -2,7 +2,11 @@
 
 #include "lexer/token.h"
 
-// All of the data for typing in the compiler
+// std
+#include <unordered_map>
+#include <string>
+
+// All of the functions for typing in the compiler
 
 // The different kinds of types (such as ints, floats, and bools)
 enum class TypeKind
@@ -39,6 +43,7 @@ inline size_t hash_combine(size_t seed, const T& v)
     return seed ^ hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
 }
 
+// Hashing stuff
 namespace std {
     template<>
     struct hash<Type> {
@@ -63,6 +68,8 @@ Type gen_const_type(Tokenizer& tokens);
 Type expl_cast(const Type& lhs, const Type& rhs);
 // Generates a type from a explicit type token like float
 Type gen_expl_type(Tokenizer& tokens);
+// Converts a string float to a hexadecimal floats
+std::string strfloat_to_hexfloat(const std::string& str, Type type);
 
 // Converts a type to a string
-std::string to_string(Type type);
+extern std::unordered_map<Type, std::string> type_to_il_str;

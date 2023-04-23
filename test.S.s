@@ -6,9 +6,10 @@
 test1:                                  # @test1
 	.cfi_startproc
 # %bb.0:
-                                        # kill: def $edi killed $edi def $rdi
+	movl	%edi, %eax
 	movl	%edi, -4(%rsp)
-	leal	4(%rdi), %eax
+	movb	%al, -5(%rsp)
+                                        # kill: def $al killed $al killed $eax
 	retq
 .Lfunc_end0:
 	.size	test1, .Lfunc_end0-test1
@@ -20,16 +21,16 @@ test1:                                  # @test1
 test:                                   # @test
 	.cfi_startproc
 # %bb.0:
-	pushq	%rax
-	.cfi_def_cfa_offset 16
-	movb	$-5, 3(%rsp)
-	movl	global(%rip), %edi
-	movl	%edi, 4(%rsp)
-	addl	$251, %edi
-	callq	test1
-	movl	%eax, 4(%rsp)
-	popq	%rcx
-	.cfi_def_cfa_offset 8
+	movabsq	$12312322323, %rax      # imm = 0x2DDDF2113
+	movq	%rax, -8(%rsp)
+	movabsq	$4597811265048713506, %rax # imm = 0x3FCEB4FC3D849922
+	movq	%rax, -16(%rsp)
+	movl	$-5, -20(%rsp)
+	movw	$-5, -30(%rsp)
+	movl	global(%rip), %eax
+	movl	%eax, -24(%rsp)
+	movl	$983386449, -28(%rsp)   # imm = 0x3A9D4951
+	movl	$-572579565, %eax       # imm = 0xDDDF2113
 	retq
 .Lfunc_end1:
 	.size	test, .Lfunc_end1-test
