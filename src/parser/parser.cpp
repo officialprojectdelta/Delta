@@ -47,6 +47,7 @@ ProgramNode* parse_program(Tokenizer& tokens)
 
     while (tokens.getPos() < tokens.size())
     {
+        // FIX FINDING PARENTHESIS FOR FUNCTION
         if (tokens.cur(2).type == TokenType::OPAREN)
         {
             // A program node will create a function subnode

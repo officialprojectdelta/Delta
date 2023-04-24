@@ -1,0 +1,1 @@
+clang -o test.ll -S test.c -emit-llvm

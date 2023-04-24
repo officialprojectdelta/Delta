@@ -11,6 +11,10 @@ std::unordered_map<Type, std::string> type_to_il_str({
     {{TypeKind::INT, 4}, "i32"},
     {{TypeKind::INT, 2}, "i16"},
     {{TypeKind::INT, 1}, "i8"},
+    {{TypeKind::UNSIGNED, 8}, "i64"},
+    {{TypeKind::UNSIGNED, 4}, "i32"},
+    {{TypeKind::UNSIGNED, 2}, "i16"},
+    {{TypeKind::UNSIGNED, 1}, "i8"},
     {{TypeKind::BOOL, 1}, "i1"},
     {{TypeKind::FLOAT, 4}, "float"},
     {{TypeKind::FLOAT, 8}, "double"},
@@ -77,6 +81,13 @@ Type gen_expl_type(Tokenizer& tokens)
         {
             tokens.inc();
             return {TypeKind::FLOAT, 8};
+        }
+        case TokenType::UNSIGNED:
+        {
+            tokens.inc();
+            Type size = gen_expl_type(tokens);
+            if (size.t_kind != TypeKind::INT) throw compiler_error("Invalid type for unsigned %s", type_to_il_str[size].c_str());
+            return {TypeKind::UNSIGNED, size.size_of};
         }
         default:
         {

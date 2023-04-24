@@ -12,6 +12,7 @@
 enum class TypeKind
 {
     INT,
+    UNSIGNED,
     FLOAT,
     BOOL, 
     NULLTP
