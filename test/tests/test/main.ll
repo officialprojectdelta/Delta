@@ -34,8 +34,7 @@ define dso_local i32 @test() {
     %10 = alloca float, align 4
     store float 0x3f53a92a20000000, float* %10, align 4
     %11 = load i32, i32* %5, align 4
-    %12 = zext i32 %11 to i32
-    ret i32 %12
+    ret i32 %11
     ret i32 0
 }
 

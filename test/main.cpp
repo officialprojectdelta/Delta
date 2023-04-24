@@ -35,13 +35,13 @@ int main(void)
         sstr.str("");
         system("./test/tests/main 2>&1 | tee test/tests/clang-main.txt");
         system("rm -rf test/tests/main");
-        sstr << "./bin/dcc " << file.path().string() << " " << file.path().stem().string() << ".ll";
+        sstr << "./bin/dcc " << file.path().string() << " " << file.path().parent_path().string() << "/" << file.path().stem().string() << ".ll";
         system(sstr.str().c_str());
         sstr.str("");
-        sstr << "llc -o " << file.path().stem().string() << ".S " << file.path().stem().string() << ".ll";
+        sstr << "llc -o " << file.path().parent_path().string() << "/" << file.path().stem().string() << ".S " << file.path().parent_path().string() << "/" << file.path().stem().string() << ".ll";
         system(sstr.str().c_str());
         sstr.str("");
-        sstr << "clang -o test/tests/main test/tests/main.o " << file.path().stem().string() << ".S";
+        sstr << "clang -o test/tests/main test/tests/main.o " << file.path().parent_path().string() << "/" << file.path().stem().string() << ".S";
         system(sstr.str().c_str());
         sstr.str("");
         system("./test/tests/main 2>&1 | tee test/tests/delta-main.txt");
