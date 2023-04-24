@@ -51,6 +51,7 @@ void cast(std::string* write, Type dst, Type src, std::string temp_to_cast)
     else 
     {
         if (src.size_of > dst.size_of) cast = "trunc";
+        else if (src.size_of == dst.size_of) return;
         else if (src.t_kind == TypeKind::INT) cast = "sext";
         else if (src.t_kind == TypeKind::UNSIGNED || dst.t_kind == TypeKind::UNSIGNED) cast = "zext";
         else return;

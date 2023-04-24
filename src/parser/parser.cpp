@@ -47,8 +47,13 @@ ProgramNode* parse_program(Tokenizer& tokens)
 
     while (tokens.getPos() < tokens.size())
     {
+        size_t before_type = tokens.getPos();
+        gen_expl_type(tokens);
+        size_t after_type = tokens.getPos();
+        tokens.setPos(before_type);
+
         // FIX FINDING PARENTHESIS FOR FUNCTION
-        if (tokens.cur(2).type == TokenType::OPAREN)
+        if (tokens.cur(after_type + 1 - before_type).type == TokenType::OPAREN)
         {
             // A program node will create a function subnode
             current->forward.emplace_back(parse_function(tokens));

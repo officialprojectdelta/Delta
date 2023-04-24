@@ -77,7 +77,8 @@
         "random": "cpp",
         "string_view": "cpp",
         "ranges": "cpp",
-        "cinttypes": "cpp"
+        "cinttypes": "cpp",
+        "codecvt": "cpp"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }

@@ -54,7 +54,6 @@ std::string read_file(const std::string& filepath)
     return str;
 }
 
-
 void write_file(const std::string& filepath, const std::string& data)
 {
     std::ofstream file(filepath, std::ios::trunc);

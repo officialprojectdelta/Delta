@@ -1,5 +1,5 @@
 TARGET_EXEC = dcc
-CC = clang++
+CC = clang++-12
 
 SRC = $(wildcard src/*.cpp) $(wildcard src/**/*.cpp) $(wildcard src/**/**/*.cpp) $(wildcard src/**/**/**/*.cpp)
 TEST = $(wildcard test/tests/*.c)
