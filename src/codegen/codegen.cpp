@@ -187,7 +187,7 @@ std::string codegen(Node* node)
     var_map.pop_back();
 
     // Fix double branches
-    size_t i = output.find("    br label");
+    size_t i = output.find("    br");
     while (i != std::string::npos)
     {
         size_t j = output.find("    br", i + 12);
@@ -197,6 +197,8 @@ std::string codegen(Node* node)
         if (k > j) output.erase(j, output.find("\n", j) - j + 1);
         i = j;
     }
+
+    
 
     return output;
 }
@@ -638,7 +640,6 @@ void IfNode::visit(std::string* write)
         sprinta(write, else_execute);
         sprinta(write, "    br label %", end_label, "\n\n");
         sprinta(write, end_label, ":\n");
-        next_temp++;
     }
 
     location = ""; 
