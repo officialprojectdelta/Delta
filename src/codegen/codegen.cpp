@@ -35,8 +35,107 @@ std::unordered_map<TypeKind, std::string> after_decimal({
     {TypeKind::INT, ""},
 });
 
-void cast(std::string* write, Type dst, Type src, std::string temp_to_cast)
+Type literal_cast(Type dst, Type src, const std::string& literal)
 {
+    if (literal[0] != '%' && src != dst)
+    {
+        if (dst.t_kind == TypeKind::INT || (dst.t_kind == TypeKind::UNSIGNED && dst.t_kind == TypeKind::UNSIGNED))
+        {
+            if (src.t_kind == TypeKind::FLOAT)
+            {
+                if (dst.size_of == 1) result = std::to_string((char) std::stod(literal_value));
+                else if (dst.size_of == 2) result = std::to_string((short) std::stod(literal_value));
+                else if (dst.size_of == 4) result = std::to_string((int) std::stod(literal_value));
+                else result = std::to_string(std::stol(literal_value));
+
+                src = dst;
+            }
+            else if (src.t_kind == TypeKind::INT)
+            {
+                if (dst.size_of > src.size_of)
+                {
+                    result = std::to_string((long) std::stol(literal_value));
+                    src = dst;
+                }
+                else 
+                {
+                    if (dst.size_of == 1) result = std::to_string((char) std::stol(literal_value));
+                    else if (dst.size_of == 2) result = std::to_string((short) std::stol(literal_value));
+                    else if (dst.size_of == 4) result = std::to_string((int) std::stol(literal_value));
+                    else result = literal_value;
+
+                    src = dst;
+                }
+            }
+            else if (src.t_kind == TypeKind::UNSIGNED)
+            {
+                if (dst.size_of > src.size_of)
+                {
+                    result = std::to_string(std::stol(literal_value));
+                    src = dst;
+                }
+                else 
+                {
+                    if (dst.size_of == 1) result = std::to_string((unsigned char) std::stoul(literal_value));
+                    else if (dst.size_of == 2) result = std::to_string((unsigned short) std::stoul(literal_value));
+                    else if (dst.size_of == 4) result = std::to_string((unsigned int) std::stoul(literal_value));
+                    else result = std::to_string((unsigned long) std::stoul(literal_value)); 
+
+                    src = dst;
+                }
+            }
+        }
+        else if (dst.t_kind == TypeKind::UNSIGNED && src.t_kind == TypeKind::INT) 
+        {
+            if (dst.size_of > src.size_of)
+            {
+                result = std::to_string((long) std::stol(literal_value));
+                src = dst;
+            }
+            else 
+            {
+                if (dst.size_of == 1) result = std::to_string((unsigned char) std::stoul(literal_value));
+                else if (dst.size_of == 2) result = std::to_string((unsigned short) std::stoul(literal_value));
+                else if (dst.size_of == 4) result = std::to_string((unsigned int) std::stoul(literal_value));
+                else result = std::to_string((unsigned long) std::stoul(literal_value));
+
+                src = dst;
+            }
+        }
+        else if (dst.t_kind == TypeKind::UNSIGNED && src.t_kind == TypeKind::FLOAT)
+        {
+            if (dst.size_of == 1) result = std::to_string((unsigned char) std::stod(literal_value));
+            else if (dst.size_of == 2) result = std::to_string((unsigned short) std::stod(literal_value));
+            else if (dst.size_of == 4) result = std::to_string((unsigned int) std::stod(literal_value));
+            else result = std::to_string((unsigned long) std::stod(literal_value));
+
+            src = dst;
+        }
+        else if (dst.t_kind == TypeKind::FLOAT)
+        {
+            // For now no if statement is needed
+            result = strfloat_to_hexfloat(literal_value, dst);
+            src = dst;
+        }
+    }
+    else 
+    {
+        return {TypeKind::NULLTP, 0};
+    }
+
+    return src;
+}
+
+void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cast)
+{
+    result_type = literal_cast(dst, src, temp_to_cast);
+    if (result_type != Type{TypeKind::NULLTP, 0}) 
+    {
+        location = ""; 
+        literal_value = "";
+        return;
+    }
+
     std::string cast;
 
     if (src.t_kind == TypeKind::FLOAT && dst.t_kind == TypeKind::FLOAT)
@@ -51,10 +150,22 @@ void cast(std::string* write, Type dst, Type src, std::string temp_to_cast)
     else 
     {
         if (src.size_of > dst.size_of) cast = "trunc";
-        else if (src.size_of == dst.size_of) return;
+        else if (src.size_of == dst.size_of) 
+        {
+            result_type = dst;
+            location = ""; 
+            literal_value = "";
+            return;
+        }
         else if (src.t_kind == TypeKind::INT) cast = "sext";
         else if (src.t_kind == TypeKind::UNSIGNED || dst.t_kind == TypeKind::UNSIGNED) cast = "zext";
-        else return;
+        else 
+        {
+            result_type = dst;
+            location = ""; 
+            literal_value = "";
+            return;
+        }
     }
 
     sprinta(write, "    %", next_temp++, " = ", cast, " ", type_to_il_str[src], " ", temp_to_cast, " to ", type_to_il_str[dst], "\n");
@@ -62,91 +173,6 @@ void cast(std::string* write, Type dst, Type src, std::string temp_to_cast)
     result_type = dst;
     location = ""; 
     literal_value = "";
-}
-
-void literal_cast(Type type)
-{
-    if (result[0] != '%' && result_type != type)
-    {
-        if (type.t_kind == TypeKind::INT || (type.t_kind == TypeKind::UNSIGNED && type.t_kind == TypeKind::UNSIGNED))
-        {
-            if (result_type.t_kind == TypeKind::FLOAT)
-            {
-                if (type.size_of == 1) result = std::to_string((char) std::stod(literal_value));
-                else if (type.size_of == 2) result = std::to_string((short) std::stod(literal_value));
-                else if (type.size_of == 4) result = std::to_string((int) std::stod(literal_value));
-                else result = std::to_string(std::stol(literal_value));
-
-                result_type = type;
-            }
-            else if (result_type.t_kind == TypeKind::INT)
-            {
-                if (type.size_of > result_type.size_of)
-                {
-                    result = std::to_string((long) std::stol(literal_value));
-                    result_type = type;
-                }
-                else 
-                {
-                    if (type.size_of == 1) result = std::to_string((char) std::stol(literal_value));
-                    else if (type.size_of == 2) result = std::to_string((short) std::stol(literal_value));
-                    else if (type.size_of == 4) result = std::to_string((int) std::stol(literal_value));
-                    else result = literal_value;
-
-                    result_type = type;
-                }
-            }
-            else if (result_type.t_kind == TypeKind::UNSIGNED)
-            {
-                if (type.size_of > result_type.size_of)
-                {
-                    result = std::to_string(std::stol(literal_value));
-                    result_type = type;
-                }
-                else 
-                {
-                    if (type.size_of == 1) result = std::to_string((unsigned char) std::stoul(literal_value));
-                    else if (type.size_of == 2) result = std::to_string((unsigned short) std::stoul(literal_value));
-                    else if (type.size_of == 4) result = std::to_string((unsigned int) std::stoul(literal_value));
-                    else result = std::to_string((unsigned long) std::stoul(literal_value)); 
-
-                    result_type = type;
-                }
-            }
-        }
-        else if (type.t_kind == TypeKind::UNSIGNED && result_type.t_kind == TypeKind::INT) 
-        {
-            if (type.size_of > result_type.size_of)
-            {
-                result = std::to_string((long) std::stol(literal_value));
-                result_type = type;
-            }
-            else 
-            {
-                if (type.size_of == 1) result = std::to_string((unsigned char) std::stoul(literal_value));
-                else if (type.size_of == 2) result = std::to_string((unsigned short) std::stoul(literal_value));
-                else if (type.size_of == 4) result = std::to_string((unsigned int) std::stoul(literal_value));
-                else result = std::to_string((unsigned long) std::stoul(literal_value));
-
-                result_type = type;
-            }
-        }
-        else if (type.t_kind == TypeKind::UNSIGNED && result_type.t_kind == TypeKind::FLOAT)
-        {
-            if (type.size_of == 1) result = std::to_string((unsigned char) std::stod(literal_value));
-            else if (type.size_of == 2) result = std::to_string((unsigned short) std::stod(literal_value));
-            else if (type.size_of == 4) result = std::to_string((unsigned int) std::stod(literal_value));
-            else result = std::to_string((unsigned long) std::stod(literal_value));
-
-            result_type = type;
-        }
-        else if (type.t_kind == TypeKind::FLOAT)
-        {
-            // For now no if statement is needed
-            result = strfloat_to_hexfloat(literal_value, type);
-            result_type = type;
-        }
-    }
 }
 
 std::string return_str(Type type)
@@ -359,12 +385,14 @@ void BinaryOpNode::visit(std::string* write)
     std::string lhs_result = result;
     Type lhs_type = result_type;
     std::string lhs_location = location;
+    std::string lhs_lit_val = literal_value;
     location = ""; 
     literal_value = "";
 
     rhs->visit(write);
     std::string rhs_result = result;
     Type rhs_type = result_type;
+    std::string rhs_lit_val = literal_value;
     location = ""; 
     literal_value = "";
 
@@ -374,12 +402,14 @@ void BinaryOpNode::visit(std::string* write)
 
         if (lhs_type != convert_to)
         {
+            literal_value = lhs_lit_val;
             cast(write, convert_to, lhs_type, lhs_result);
             lhs_result = result;
         }
 
         if (rhs_type != convert_to)
         {
+            literal_value = rhs_lit_val;
             cast(write, convert_to, rhs_type, rhs_result);
             rhs_result = result;
         }
@@ -421,7 +451,8 @@ void BinaryOpNode::visit(std::string* write)
     }
     else
     {
-        if (lhs_location.size() == 0)
+        if (lhs_location.size() == 0) throw compiler_error("%s is not a variable", lhs_result.c_str());
+        literal_value = rhs_lit_val;
         if (lhs_type != rhs_type) cast(write, lhs_type, rhs_type, rhs_result);
         sprinta(write, "    store ", type_to_il_str[result_type], " ", result, ", ", type_to_il_str[result_type], "* ", lhs_location, ", align ", result_type.size_of, "\n");
     }
@@ -510,7 +541,11 @@ void DeclNode::visit(std::string* write)
         if (assign) 
         {
             assign->visit(write);
-            literal_cast(this->type);
+            // Only literal cast b/c no code can be executed
+            result_type = literal_cast(this->type, result_type, result);
+            if (result_type == Type{TypeKind::NULLTP, 1}) throw compiler_error("Global variable can only be declared as a literal");
+            literal_value = "";
+            location = "";
             sprinta(write, result);
         }
         else sprinta(write, "0", after_decimal[type.t_kind]);
@@ -525,7 +560,6 @@ void DeclNode::visit(std::string* write)
         if (assign) 
         {
             assign->visit(write);
-            literal_cast(this->type);
             if (result_type != this->type) cast(write, this->type, result_type, result);
             sprinta(write, "    store ", type_to_il_str[this->type], " ", result, ", ", type_to_il_str[this->type], "* ", var_map.back()[this->name.value].first, ", align ", this->type.size_of, "\n");
         }

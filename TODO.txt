@@ -1,9 +1,9 @@
 MAIN THINGS (coming soon)
--Assembly
+-More types DONE
 -Pointers
--More types
+-Const
+-Assembly
 -Structs
-
 
 Non-crucial
 Things that might be nice in the future, but not currently implemented
