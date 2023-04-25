@@ -29,6 +29,7 @@ int main(void)
 
     for (auto file : std::filesystem::directory_iterator("test/tests/test"))
     {
+        if (file.path().extension() != ".c") continue;
         std::stringstream sstr;
         sstr << "clang -o test/tests/main test/tests/main.o " << file.path().string();
         system(sstr.str().c_str());
@@ -50,6 +51,7 @@ int main(void)
         if (read_file("test/tests/delta-main.txt") != read_file("test/tests/clang-main.txt")) std::cout << "Test doesn't complete " << file.path().string();
         else std::cout << "Test does complete " << file.path().string();
 
-        system("rm -rf test/tests/delta-main.txt test/test/clang-main.txt");
+        system("rm -rf test/tests/delta-main.txt test/tests/clang-main.txt");
+        system(std::string("rm -rf " + file.path().parent_path().string() + "/" + file.path().stem().string() + ".S " + file.path().parent_path().string() + "/" + file.path().stem().string() + ".ll").c_str());
     }
 }
