@@ -2,6 +2,6 @@ int twice(int x){
     return 2 * x;
 }
 
-int main() {
+int test() {
     return twice(3);
 }

@@ -1,7 +1,7 @@
 int foo(int a);
 int bar(int b);
 
-int main() {
+int test() {
     return foo(5);
 }
 

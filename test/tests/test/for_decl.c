@@ -1,4 +1,4 @@
-int main() {
+int test() {
     int a = 0;
 
     for (int i = 0; i < 3; i = i + 1)

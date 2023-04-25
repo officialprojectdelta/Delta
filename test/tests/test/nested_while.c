@@ -1,4 +1,4 @@
-int main() {
+int test() {
     int a = 1;
 
     while (a / 3 < 20) {

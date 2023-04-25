@@ -1,6 +1,6 @@
 int a = 3;
 
-int main() {
+int test() {
     int ret = 0;
     if (a) {
         int a = 0;

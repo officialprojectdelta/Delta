@@ -2,7 +2,7 @@ int foo(int a) {
     return a + 1;
 }
 
-int main() {
+int test() {
     return foo(4);
 }
 

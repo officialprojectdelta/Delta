@@ -1,4 +1,4 @@
-int main(){
+int test(){
     int a = 2;
     if (a < 3) {
         {

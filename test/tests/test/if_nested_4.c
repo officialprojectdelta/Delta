@@ -1,4 +1,4 @@
-int main() {
+int test() {
     int a = 0;
     if (1)
         if (0)

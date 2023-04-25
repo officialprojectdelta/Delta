@@ -1,5 +1,5 @@
 int foo = 4;
 
-int main() {
+int test() {
     return foo + 3;
 }

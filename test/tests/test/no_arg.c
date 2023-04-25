@@ -2,6 +2,6 @@ int three(){
     return 3;
 }
 
-int main() {
+int test() {
     return three();
 }

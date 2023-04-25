@@ -6,7 +6,7 @@ int fib(int n) {
     }
 }
 
-int main() {
+int test() {
     int n = 5;
     return fib(n);
 }

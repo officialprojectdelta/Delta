@@ -1,6 +1,6 @@
 int foo(int a, int b);
 
-int main() {
+int test() {
     return foo(1, 2);
 }
 
