@@ -142,6 +142,8 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
 
     std::string cast;
 
+    std::cout << (int) dst.t_kind << " " << (int) src.t_kind << std::endl;
+
     if (src.t_kind == TypeKind::FLOAT && dst.t_kind == TypeKind::FLOAT)
     {
         if (src.size_of > dst.size_of) cast = "fptrunc";
@@ -483,7 +485,7 @@ void BinaryOpNode::visit(std::string* write)
     }
     else if (op == NodeKind::OR)
     {
-        
+
     }
     else
     {
