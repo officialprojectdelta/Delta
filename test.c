@@ -1,19 +1,6 @@
 int test() {
-    int a = 0;
-    if (a) {
-        int b = 2;
-        return b;
-    } else {
-        int c = 3;
-        if (a < c) 
-        {
-            return 4;
-        } 
-        else 
-        {
-            return 5;
-            int a = 3;
-        }
-    }
-    return a;
+    int x = 1;
+    int y = 1;
+    int z = 1;
+    return (x || y) && z;
 }

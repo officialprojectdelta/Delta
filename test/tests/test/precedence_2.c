@@ -1,3 +1,6 @@
 int test() {
-    return (1 || 0) && 0;
+    int x = 1;
+    int y = 1;
+    int z = 1;
+    return (x || y) && z;
 }

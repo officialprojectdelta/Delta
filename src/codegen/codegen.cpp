@@ -331,7 +331,7 @@ void UnaryOpNode::visit(std::string* write)
             forward->visit(write);
             if (result_type.t_kind == TypeKind::FLOAT) throw compiler_error("Invalid argument type ", (int) result_type.t_kind, " to unary expression: ", (int) this->op, "\n");
             sprinta(write, "    %", next_temp, " = xor ", type_to_il_str[result_type], " ", result, ", -1\n");
-            sprinta(&result, "%", next_temp++);
+            result = "%" + std::to_string(next_temp++);
             break;
         }
         case NodeKind::NEG:
@@ -476,6 +476,14 @@ void BinaryOpNode::visit(std::string* write)
             result = "%" + std::to_string(next_temp - 1);
             result_type = {TypeKind::BOOL, 1};
         }
+    }
+    else if (op == NodeKind::AND)
+    {
+
+    }
+    else if (op == NodeKind::OR)
+    {
+        
     }
     else
     {
