@@ -142,9 +142,27 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
 
     std::string cast;
 
-    std::cout << (int) dst.t_kind << " " << (int) src.t_kind << std::endl;
+    if (dst.t_kind == TypeKind::BOOL)
+    {
+        if (src.t_kind == TypeKind::INT) sprinta(write, "    %", next_temp++, " = icmp ne ", type_to_il_str[src], " ", result, ", 0\n");
+        else if (src.t_kind == TypeKind::FLOAT) sprinta(write, "    %", next_temp++, " = fcmp une ", type_to_il_str[src], " ", result, ", 0.000000e+00\n");
+        else if (src.t_kind == TypeKind::BOOL) 
+        {
+            location = ""; 
+            returned = false; 
+            literal_value = "";
+            return;
+        }
+        else throw compiler_error("Invalid type %s\n", type_to_il_str[result_type].c_str());
 
-    if (src.t_kind == TypeKind::FLOAT && dst.t_kind == TypeKind::FLOAT)
+        result = "%" + std::to_string(next_temp - 1);
+        result_type = Type{TypeKind::BOOL, 1};
+        location = ""; 
+        returned = false; 
+        literal_value = "";
+        return;
+    }
+    else if (src.t_kind == TypeKind::FLOAT && dst.t_kind == TypeKind::FLOAT)
     {
         if (src.size_of > dst.size_of) cast = "fptrunc";
         else cast = "fpext";
@@ -408,6 +426,65 @@ void BinaryOpNode::visit(std::string* write)
         {NodeKind::LESSEQ, "le"},
     });
 
+    if (op == NodeKind::AND)
+    {
+        // The lable that the automatic false will come from in phi
+        size_t auto_false = next_temp++;
+        sprinta(write, "    br label %", auto_false, "\n\n");
+        sprinta(write, auto_false, ":\n");
+
+        lhs->visit(write);
+        cast(write, Type{TypeKind::BOOL, 1}, result_type, result);
+        std::string result_1 = result;
+        size_t if_true = next_temp++;
+        // If the first condition is false jump straight to end and phi [false, autO_false]
+        // Otherwise jump to if_true, execute second condition, do icmp
+        // Second part of phi is [second_condition_bool, if_true]
+        std::string if_true_statement;
+        rhs->visit(&if_true_statement);
+        cast(&if_true_statement, Type{TypeKind::BOOL, 1}, result_type, result);
+        sprinta(write, "    br i1 ", result_1, ", label %", if_true, ", label %", auto_false, "\n\n");
+        sprinta(write, if_true, ":\n");
+        sprinta(write, if_true_statement);
+        sprinta(write, "    br label %", next_temp, "\n\n");
+        sprinta(write, next_temp++, ":\n");
+        sprinta(write, "    %", next_temp++, " = phi i1 [ false, %", auto_false, " ], [ ", result, ", %", if_true, " ]\n");
+        location = "";
+        returned = false;
+        result = "%" + std::to_string(next_temp - 1);
+        result_type = Type{TypeKind::BOOL, 1};
+        return;
+    }
+    else if (op == NodeKind::OR)
+    {
+        // The lable that the automatic true will come from in phi
+        size_t auto_true = next_temp++;
+        sprinta(write, "    br label %", auto_true, "\n\n");
+        sprinta(write, auto_true, ":\n");
+
+        lhs->visit(write);
+        cast(write, Type{TypeKind::BOOL, 1}, result_type, result);
+        std::string result_1 = result;
+        size_t if_false = next_temp++;
+        // If the first condition is true jump straight to end and phi [true, auto_true]
+        // Otherwise jump to if_false, execute second condition, do icmp
+        // Second part of phi is [second_condition_bool, if_false]
+        std::string if_false_statement;
+        rhs->visit(&if_false_statement);
+        cast(&if_false_statement, Type{TypeKind::BOOL, 1}, result_type, result);
+        sprinta(write, "    br i1 ", result_1, ", label %", next_temp, ", label %", if_false, "\n\n");
+        sprinta(write, if_false, ":\n");
+        sprinta(write, if_false_statement);
+        sprinta(write, "    br label %", next_temp, "\n\n");
+        sprinta(write, next_temp++, ":\n");
+        sprinta(write, "    %", next_temp++, " = phi i1 [ true, %", auto_true, " ], [ ", result, ", %", if_false, " ]\n");
+        location = "";
+        returned = false;
+        result = "%" + std::to_string(next_temp - 1);
+        result_type = Type{TypeKind::BOOL, 1};
+        return;
+    }
+
     // Convert types
     lhs->visit(write);
     std::string lhs_result = result;
@@ -479,15 +556,7 @@ void BinaryOpNode::visit(std::string* write)
             result_type = {TypeKind::BOOL, 1};
         }
     }
-    else if (op == NodeKind::AND)
-    {
-
-    }
-    else if (op == NodeKind::OR)
-    {
-
-    }
-    else
+    else 
     {
         if (lhs_location.size() == 0) throw compiler_error("%s is not a variable", lhs_result.c_str());
         literal_value = rhs_lit_val;
@@ -640,15 +709,7 @@ void IfNode::visit(std::string* write)
     literal_value = "";
     
     // Make sure that we are branching with a boolean value
-    if (result_type != Type{TypeKind::BOOL, 1}) 
-    {
-        if (result_type.t_kind == TypeKind::INT) sprinta(write, "    %", next_temp++, " = icmp ne ", type_to_il_str[result_type], " ", result, ", 0\n");
-        else if (result_type.t_kind == TypeKind::FLOAT) sprinta(write, "    %", next_temp++, " = fcmp une ", type_to_il_str[result_type], " ", result, ", 0.000000e+00\n");
-        else throw compiler_error("Invalid type %s\n", type_to_il_str[result_type].c_str());
-
-        result = "%" + std::to_string(next_temp - 1);
-        result_type = Type{TypeKind::BOOL, 1};
-    }
+    cast(write, Type{TypeKind::BOOL, 1}, result_type, result);
     
     // Do the first branch
     size_t label_save = next_temp;
@@ -709,20 +770,12 @@ void ForNode::visit(std::string* write)
     literal_value = "";
 
     // Make sure that we are branching with a boolean value
-    if (result_type != Type{TypeKind::BOOL, 1} && result_type != Type{TypeKind::NULLTP, 0}) 
-    {
-        if (result_type.t_kind == TypeKind::INT) sprinta(write, "    %", next_temp++, " = icmp ne ", type_to_il_str[result_type], " ", result, ", 0\n");
-        else if (result_type.t_kind == TypeKind::FLOAT) sprinta(write, "    %", next_temp++, " = fcmp une ", type_to_il_str[result_type], " ", result, ", 0.000000e+00\n");
-        else throw compiler_error("Invalid type %s\n", type_to_il_str[result_type].c_str());
-
-        result = "%" + std::to_string(next_temp - 1);
-        result_type = Type{TypeKind::BOOL, 1};
-    }
-    else if (result_type == Type{TypeKind::NULLTP, 0})
+    if (result_type == Type{TypeKind::NULLTP, 0})
     {
         result = "1";
         result_type = Type{TypeKind::BOOL, 1};
-    }
+    } 
+    else cast(write, Type{TypeKind::BOOL, 1}, result_type, result);
 
     std::string condition_loc = result;
     size_t check_condition = next_temp++;
@@ -792,15 +845,7 @@ void WhileNode::visit(std::string* write)
         literal_value = "";
 
         // Make sure that we are branching with a boolean value
-        if (result_type != Type{TypeKind::BOOL, 1}) 
-        {
-            if (result_type.t_kind == TypeKind::INT) sprinta(write, "    %", next_temp++, " = icmp ne ", type_to_il_str[result_type], " ", result, ", 0\n");
-            else if (result_type.t_kind == TypeKind::FLOAT) sprinta(write, "    %", next_temp++, " = fcmp une ", type_to_il_str[result_type], " ", result, ", 0.000000e+00\n");
-            else throw compiler_error("Invalid type %s\n", type_to_il_str[result_type].c_str());
-
-            result = "%" + std::to_string(next_temp - 1);
-            result_type = Type{TypeKind::BOOL, 1};
-        }
+        cast(write, Type{TypeKind::BOOL, 1}, result_type, result);
 
         size_t i = write->find("{break}");
         while (i != std::string::npos)
@@ -833,15 +878,7 @@ void WhileNode::visit(std::string* write)
         literal_value = "";
 
         // Make sure that we are branching with a boolean value
-        if (result_type != Type{TypeKind::BOOL, 1}) 
-        {
-            if (result_type.t_kind == TypeKind::INT) sprinta(write, "    %", next_temp++, " = icmp ne ", type_to_il_str[result_type], " ", result, ", 0\n");
-            else if (result_type.t_kind == TypeKind::FLOAT) sprinta(write, "    %", next_temp++, " = fcmp une ", type_to_il_str[result_type], " ", result, ", 0.000000e+00\n");
-            else throw compiler_error("Invalid type %s\n", type_to_il_str[result_type].c_str());
-
-            result = "%" + std::to_string(next_temp - 1);
-            result_type = Type{TypeKind::BOOL, 1};
-        }
+        cast(write, Type{TypeKind::BOOL, 1}, result_type, result);
 
         std::string condition_loc = result;
         size_t check_condition = next_temp++;
