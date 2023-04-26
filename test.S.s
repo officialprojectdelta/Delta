@@ -6,28 +6,37 @@
 test:                                   # @test
 	.cfi_startproc
 # %bb.0:
-	movl	$0, -4(%rsp)
-	movl	$0, -8(%rsp)
-	cmpl	$9, -8(%rsp)
-	jg	.LBB0_4
-	.p2align	4, 0x90
-.LBB0_2:                                # =>This Inner Loop Header: Depth=1
-	movl	-4(%rsp), %eax
-	movl	%eax, %ecx
-	shrl	$31, %ecx
-	addl	%eax, %ecx
-	andl	$-2, %ecx
-	cmpl	%eax, %ecx
-	jne	.LBB0_4
-# %bb.3:                                #   in Loop: Header=BB0_2 Depth=1
-	movl	-8(%rsp), %eax
-	addl	%eax, -4(%rsp)
-	incl	%eax
-	movl	%eax, -8(%rsp)
-	cmpl	$9, -8(%rsp)
-	jle	.LBB0_2
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset %rbp, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register %rbp
+	subq	$16, %rsp
+	movl	$0, -4(%rbp)
+	movb	$1, %al
+	testb	%al, %al
+	jne	.LBB0_2
+# %bb.1:
+	movq	%rsp, %rax
+	leaq	-16(%rax), %rsp
+	movl	$2, -16(%rax)
+	movl	$2, %eax
+	jmp	.LBB0_4
+.LBB0_2:
+	movq	%rsp, %rax
+	leaq	-16(%rax), %rsp
+	movl	$3, -16(%rax)
+	cmpl	$2, -4(%rbp)
+	jg	.LBB0_5
+# %bb.3:
+	movl	$4, %eax
+	jmp	.LBB0_4
+.LBB0_5:
+	movl	$5, %eax
 .LBB0_4:
-	movl	-4(%rsp), %eax
+	movq	%rbp, %rsp
+	popq	%rbp
+	.cfi_def_cfa %rsp, 8
 	retq
 .Lfunc_end0:
 	.size	test, .Lfunc_end0-test

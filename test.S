@@ -10,7 +10,6 @@ define dso_local i32 @test() {
     store i32 2, i32* %5, align 4
     %6 = load i32, i32* %5, align 4
     ret i32 %6
-    br label %16
 
 7:
     %8 = alloca i32, align 4
@@ -22,20 +21,16 @@ define dso_local i32 @test() {
 
 12:
     ret i32 4
-    br label %15
 
 13:
     ret i32 5
-    %14 = alloca i32, align 4
-    store i32 3, i32* %14, align 4
+
+14:
     br label %15
 
 15:
-    br label %16
-
-16:
-    %17 = load i32, i32* %1, align 4
-    ret i32 %17
+    %16 = load i32, i32* %1, align 4
+    ret i32 %16
     ret i32 0
 }
 
