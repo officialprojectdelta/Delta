@@ -169,7 +169,7 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
     }
     else if (src.t_kind == TypeKind::FLOAT && dst.t_kind == TypeKind::INT) cast = "fptosi";
     else if (dst.t_kind == TypeKind::FLOAT && src.t_kind == TypeKind::INT) cast = "sitofp";
-    else if (src.t_kind == TypeKind::FLOAT && dst.t_kind == TypeKind::UNSIGNED) cast = "fptoui";
+    else if (src.t_kind == TypeKind::FLOAT && (dst.t_kind == TypeKind::UNSIGNED || dst.t_kind == TypeKind::BOOL)) cast = "fptoui";
     else if (dst.t_kind == TypeKind::FLOAT && src.t_kind == TypeKind::UNSIGNED) cast = "uitofp";
     else 
     {
@@ -183,7 +183,7 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
             return;
         }
         else if (src.t_kind == TypeKind::INT) cast = "sext";
-        else if (src.t_kind == TypeKind::UNSIGNED || dst.t_kind == TypeKind::UNSIGNED) cast = "zext";
+        else if (src.t_kind == TypeKind::UNSIGNED || dst.t_kind == TypeKind::UNSIGNED || src.t_kind == TypeKind::BOOL) cast = "zext";
         else 
         {
             result_type = dst;
@@ -501,6 +501,7 @@ void BinaryOpNode::visit(std::string* write)
     {
         if (lhs_location.size() == 0) throw compiler_error("%s is not a variable", lhs_result.c_str());
         literal_value = rhs_lit_val;
+        std::cout << (int) rhs_type.t_kind << std::endl;
         if (lhs_type != rhs_type) cast(write, lhs_type, rhs_type, rhs_result);
         sprinta(write, "    store ", type_to_il_str[result_type], " ", result, ", ", type_to_il_str[result_type], "* ", lhs_location, ", align ", result_type.size_of, "\n");
     }
@@ -556,7 +557,7 @@ void TernNode::visit(std::string* write)
     // Always use select
     sprinta(write, "    %", next_temp++, " = select i1 ", condition_result, ", ", type_to_il_str[convert_to], " ", lhs_result, ", ", type_to_il_str[convert_to], " ", rhs_result, "\n");
 
-    result = next_temp - 1;
+    result = "%" + std::to_string(next_temp - 1);
     result_type = convert_to;
     location = ""; 
     returned = false; 

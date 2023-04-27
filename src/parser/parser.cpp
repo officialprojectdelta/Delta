@@ -392,6 +392,7 @@ Node* parse_exp(Tokenizer& tokens, size_t min_prec)
             TernNode* tern = new TernNode;
             tern->condition = lhs;
             lhs = tern;
+            tern->forceboolout = false;
 
             tokens.inc();   
 
@@ -408,6 +409,7 @@ Node* parse_exp(Tokenizer& tokens, size_t min_prec)
             TernNode* tern = new TernNode;
             tern->condition = lhs;
             lhs = tern;
+            tern->forceboolout = true;
 
             auto precAssoc = prec_map[tokens.cur().type];
             size_t nextMinimumPrec = precAssoc.second ? precAssoc.first : precAssoc.first + 1;
