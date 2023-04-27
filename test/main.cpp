@@ -27,6 +27,8 @@ int main(void)
     system("make");
     system("clang -o test/tests/main.o -c test/tests/main.c -O2");
 
+    std::ofstream log_file("log.txt", std::ios::trunc);
+
     for (auto file : std::filesystem::directory_iterator("test/tests/test"))
     {
         if (file.path().extension() != ".c") continue;
@@ -48,10 +50,12 @@ int main(void)
         system("./test/tests/main 2>&1 | tee test/tests/delta-main.txt");
         system("rm -rf test/tests/main");
         
-        if (read_file("test/tests/delta-main.txt") != read_file("test/tests/clang-main.txt")) std::cout << "Test doesn't complete " << file.path().string();
-        else std::cout << "Test does complete " << file.path().string();
+        if (read_file("test/tests/delta-main.txt") != read_file("test/tests/clang-main.txt")) log_file << "Test doesn't complete: " << file.path().string() << "\n";
+        else log_file << "Test does complete: " << file.path().string() << "\n";
 
-        system("rm -rf test/tests/delta-main.txt test/tests/clang-main.txt");
+        system("rm -rf test/tests/delta-main.txt test/tests/clang-main.txt test/tests/main.o");
         system(std::string("rm -rf " + file.path().parent_path().string() + "/" + file.path().stem().string() + ".S " + file.path().parent_path().string() + "/" + file.path().stem().string() + ".ll").c_str());
     }
+
+    log_file.close();
 }

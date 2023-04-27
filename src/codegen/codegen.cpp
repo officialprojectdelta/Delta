@@ -501,7 +501,6 @@ void BinaryOpNode::visit(std::string* write)
     {
         if (lhs_location.size() == 0) throw compiler_error("%s is not a variable", lhs_result.c_str());
         literal_value = rhs_lit_val;
-        std::cout << (int) rhs_type.t_kind << std::endl;
         if (lhs_type != rhs_type) cast(write, lhs_type, rhs_type, rhs_result);
         sprinta(write, "    store ", type_to_il_str[result_type], " ", result, ", ", type_to_il_str[result_type], "* ", lhs_location, ", align ", result_type.size_of, "\n");
     }
@@ -739,6 +738,7 @@ void IfNode::visit(std::string* write)
 
 void ForNode::visit(std::string* write)
 {
+    var_map.emplace_back();
     initial->visit(write);
     location = ""; 
     returned = false; 
@@ -786,7 +786,7 @@ void ForNode::visit(std::string* write)
     {
         execute.erase(i, 7);
         std::string input_this;
-        sprinta(&input_this, "    br label %", next_temp + 1, "\n\n");
+        sprinta(&input_this, "    br label %", next_temp, "\n\n");
         execute.insert(i, input_this);
         i = execute.find("{break}", i);
     }
@@ -810,6 +810,7 @@ void ForNode::visit(std::string* write)
     sprinta(write, "    br label %", begin_loop, "\n\n");
     sprinta(write, next_temp++, ":\n");
 
+    var_map.pop_back();
     var_map.pop_back();
 }
 
