@@ -1,9 +1,10 @@
-int test() {
-    int a = 0;
-    for (; ; ) {
-        a = a + 1;
-        if (a > 3) break;
+int test(){
+    int a = 2;
+    if (a < 3) {
+        {
+            int a = 3;
+            return a;
+        }
+        return a;
     }
-
-    return a;
 }

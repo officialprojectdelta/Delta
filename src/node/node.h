@@ -119,6 +119,18 @@ struct BlockStmtNode : Node
     ~BlockStmtNode() override {}
 };
 
+// This is used for generating proper terminator
+struct TerminatorCheckNode : Node
+{   
+    // Every statment in the block statment
+    Node* forward;
+
+    // Codegen
+    virtual void visit(std::string* write) override;
+
+    ~TerminatorCheckNode() override { if (forward) delete forward; }
+};
+
 struct FunctionNode : Node
 {
     // Return type of the function

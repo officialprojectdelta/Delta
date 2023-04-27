@@ -5,6 +5,7 @@
 
 // std
 #include <cstdio> 
+#include <exception>
 
 // The output string
 std::string output;
@@ -27,8 +28,8 @@ std::string literal_value;
 // The return type of the function (for return statements)
 Type return_type;
 
-// If the last node was a return statement
-bool returned;
+// Flag if cg'd return, break, or continue
+bool terminator = false;
 
 // The stack declared variables and labels, (the vector is for multiple stack frames)
 std::vector<std::unordered_map<std::string, std::pair<std::string, Type>>> var_map;
@@ -135,7 +136,6 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
     if (result_type != Type{TypeKind::NULLTP, 0}) 
     {
         location = ""; 
-        returned = false; 
         literal_value = "";
         return;
     }
@@ -149,7 +149,6 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
         else if (src.t_kind == TypeKind::BOOL) 
         {
             location = ""; 
-            returned = false; 
             literal_value = "";
             return;
         }
@@ -158,7 +157,6 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
         result = "%" + std::to_string(next_temp - 1);
         result_type = Type{TypeKind::BOOL, 1};
         location = ""; 
-        returned = false; 
         literal_value = "";
         return;
     }
@@ -178,7 +176,6 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
         {
             result_type = dst;
             location = ""; 
-            returned = false; 
             literal_value = "";
             return;
         }
@@ -188,7 +185,6 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
         {
             result_type = dst;
             location = ""; 
-            returned = false; 
             literal_value = "";
             return;
         }
@@ -198,7 +194,6 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
     result = "%" + std::to_string(next_temp - 1);
     result_type = dst;
     location = ""; 
-    returned = false; 
     literal_value = "";
 }
 
@@ -213,6 +208,7 @@ std::string codegen(Node* node)
     node->visit(&output);
     var_map.pop_back();
 
+    // Just cover the bases
     // Fix double branches
     size_t i = output.find("    br");
     while (i != std::string::npos)
@@ -260,15 +256,16 @@ void BlockStmtNode::visit(std::string* write)
     for (auto x = forward.begin(); x != forward.end(); x++)
     {
         (*x)->visit(write);
-        if (returned) 
-        {
-            returned = false;
-            break;
-        }
-        returned = false;
+        if (terminator) break;
     }
 
     var_map.pop_back();
+}
+
+void TerminatorCheckNode::visit(std::string* write)
+{
+    this->forward->visit(write);
+    if (terminator) terminator = false;
 }
 
 void FunctionNode::visit(std::string* write)
@@ -403,7 +400,6 @@ void UnaryOpNode::visit(std::string* write)
     }
 
     location = ""; 
-    returned = false; 
     literal_value = "";
 }
 
@@ -433,7 +429,6 @@ void BinaryOpNode::visit(std::string* write)
     std::string lhs_location = location;
     std::string lhs_lit_val = literal_value;
     location = ""; 
-    returned = false; 
     literal_value = "";
 
     rhs->visit(write);
@@ -441,7 +436,6 @@ void BinaryOpNode::visit(std::string* write)
     Type rhs_type = result_type;
     std::string rhs_lit_val = literal_value;
     location = ""; 
-    returned = false; 
     literal_value = "";
 
     if (arith_op_to_str.contains(op) || cmp_op_to_str.contains(op))
@@ -506,7 +500,6 @@ void BinaryOpNode::visit(std::string* write)
     }
 
     location = ""; 
-    returned = false; 
     literal_value = "";
 }
 
@@ -516,7 +509,6 @@ void TernNode::visit(std::string* write)
     cast(write, Type{TypeKind::BOOL, 1}, result_type, result);
     std::string condition_result = result;
     location = ""; 
-    returned = false; 
     literal_value = "";
 
     // Convert types
@@ -526,7 +518,6 @@ void TernNode::visit(std::string* write)
     std::string lhs_location = location;
     std::string lhs_lit_val = literal_value;
     location = ""; 
-    returned = false; 
     literal_value = "";
 
     rhs->visit(write);
@@ -534,7 +525,6 @@ void TernNode::visit(std::string* write)
     Type rhs_type = result_type;
     std::string rhs_lit_val = literal_value;
     location = ""; 
-    returned = false; 
     literal_value = "";
 
     Type convert_to = this->forceboolout ? Type{TypeKind::BOOL, 1} : expl_cast(lhs_type, rhs_type);
@@ -559,7 +549,6 @@ void TernNode::visit(std::string* write)
     result = "%" + std::to_string(next_temp - 1);
     result_type = convert_to;
     location = ""; 
-    returned = false; 
     literal_value = "";
 }
 
@@ -570,7 +559,6 @@ void LiteralNode::visit(std::string* write)
     if (this->type.t_kind == TypeKind::FLOAT) result = strfloat_to_hexfloat(this->value.value, this->type);
     result_type = this->type;
     location = ""; 
-    returned = false; 
 }
 
 void VarNode::visit(std::string* write)
@@ -621,8 +609,7 @@ void FuncallNode::visit(std::string* write)
 
     result = "%" + std::to_string(next_temp - 1);
     result_type = function_definitions[this->name.value].type;
-    location = ""; 
-    returned = false; 
+    location = "";  
     literal_value = "";
 }
 
@@ -641,7 +628,6 @@ void DeclNode::visit(std::string* write)
             if (result_type == Type{TypeKind::NULLTP, 1}) throw compiler_error("Global variable can only be declared as a literal");
             literal_value = "";
             location = ""; 
-            returned = false;
             sprinta(write, result);
         }
         else sprinta(write, "0", after_decimal[type.t_kind]);
@@ -669,28 +655,29 @@ void DeclNode::visit(std::string* write)
 void BreakNode::visit(std::string* write)
 {
     // Stupid hacks
+    terminator = true;
     sprinta(write, "{break}\n");
 }
 
 void ContinueNode::visit(std::string* write)
 {
     // Stupid hacks
+    terminator = true;
     sprinta(write, "{continue}\n");
 }
 
 void RetNode::visit(std::string* write)
 {
+    terminator = true;
     value->visit(write);
     if (result_type != return_type) cast(write, return_type, result_type, result);
     sprinta(write, "    ret ", type_to_il_str[result_type], " ", result, "\n");
-    returned = true;
 }
 
 void IfNode::visit(std::string* write)
 {
     condition->visit(write);
     location = ""; 
-    returned = false; 
     literal_value = "";
     
     // Make sure that we are branching with a boolean value
@@ -704,7 +691,6 @@ void IfNode::visit(std::string* write)
     std::string if_true_execute;
     statement->visit(&if_true_execute);
     location = ""; 
-    returned = false; 
     literal_value = "";
 
     // Save the label for the end of the if true statment (leads to else or end)
@@ -732,7 +718,6 @@ void IfNode::visit(std::string* write)
     }
 
     location = ""; 
-    returned = false; 
     literal_value = "";
 }
 
@@ -741,7 +726,6 @@ void ForNode::visit(std::string* write)
     var_map.emplace_back();
     initial->visit(write);
     location = ""; 
-    returned = false; 
     literal_value = "";
 
     var_map.emplace_back();
@@ -752,7 +736,6 @@ void ForNode::visit(std::string* write)
 
     condition->visit(write);
     location = ""; 
-    returned = false; 
     literal_value = "";
 
     // Make sure that we are branching with a boolean value
@@ -770,16 +753,16 @@ void ForNode::visit(std::string* write)
     std::string end_loop;
 
     statement->visit(&execute);
-    location = ""; 
-    returned = false; 
+    location = "";
     literal_value = "";
 
     end_loop_label = next_temp++;
 
     end->visit(&end_loop);
-    location = ""; 
-    returned = false; 
+    location = "";
     literal_value = "";
+
+    
 
     size_t i = execute.find("{break}");
     while (i != std::string::npos)
@@ -824,11 +807,9 @@ void WhileNode::visit(std::string* write)
     {
         statement->visit(write);
         location = ""; 
-        returned = false; 
         literal_value = "";
         condition->visit(write);
         location = ""; 
-        returned = false; 
         literal_value = "";
 
         // Make sure that we are branching with a boolean value
@@ -861,7 +842,6 @@ void WhileNode::visit(std::string* write)
     {
         condition->visit(write);
         location = ""; 
-        returned = false; 
         literal_value = "";
 
         // Make sure that we are branching with a boolean value
@@ -872,8 +852,7 @@ void WhileNode::visit(std::string* write)
         std::string execute;
 
         statement->visit(&execute);
-        location = ""; 
-        returned = false;
+        location = "";
         literal_value = "";
 
         size_t i = execute.find("{break}");

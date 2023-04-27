@@ -206,13 +206,20 @@ Node* parse_statement(Tokenizer& tokens)
         tokens.inc();
 
         // Get statement to execute if condition is true
-        inode->statement = parse_statement(tokens);
+        // Wrap in BlockStmtNode to cover edge cases
+        TerminatorCheckNode* statement = new TerminatorCheckNode;
+        statement->forward = parse_statement(tokens);
+        inode->statement = statement;
 
         // Check if next token is else
         if (tokens.cur().type == TokenType::ELSE) 
         { 
             tokens.inc();
-            inode->else_stmt = parse_statement(tokens);
+            // Get statement to execute if condition is false (else)
+            // Wrap in BlockStmtNode to cover edge cases
+            TerminatorCheckNode* statement = new TerminatorCheckNode;
+            statement->forward = parse_statement(tokens);
+            inode->else_stmt = statement;
         }
 
         return inode;
@@ -242,7 +249,7 @@ Node* parse_statement(Tokenizer& tokens)
         fnode->condition = parse_exp(tokens, 0);
         if (tokens.cur().type != TokenType::SEMI) throw compiler_error("Expected end of expression");
         tokens.inc();
-
+    
         if (tokens.cur().type != TokenType::CPAREN)
         {
             fnode->end = parse_exp(tokens, 0);
@@ -256,7 +263,10 @@ Node* parse_statement(Tokenizer& tokens)
         }
 
         // Get statement to execute if condition is true
-        fnode->statement = parse_statement(tokens);
+        // Wrap in BlockStmtNode to cover edge cases
+        TerminatorCheckNode* statement = new TerminatorCheckNode;
+        statement->forward = parse_statement(tokens);
+        fnode->statement = statement;
 
         return fnode;
     }
@@ -277,7 +287,10 @@ Node* parse_statement(Tokenizer& tokens)
         tokens.inc();
 
         // Get statement to execute if condition is true
-        wnode->statement = parse_statement(tokens);
+        // Wrap in BlockStmtNode to cover edge cases
+        TerminatorCheckNode* statement = new TerminatorCheckNode;
+        statement->forward = parse_statement(tokens);
+        wnode->statement = statement;
 
         return wnode;
     }
@@ -288,7 +301,10 @@ Node* parse_statement(Tokenizer& tokens)
         tokens.inc();
 
         // Get statement to execute if condition is true
-        wnode->statement = parse_statement(tokens);
+        // Wrap in BlockStmtNode to cover edge cases
+        TerminatorCheckNode* statement = new TerminatorCheckNode;
+        statement->forward = parse_statement(tokens);
+        wnode->statement = statement;
 
         // Look for while, if not found error
         if (tokens.cur().type != TokenType::WHILE) throw compiler_error("Expected 'while' in do/while loop");

@@ -53,9 +53,11 @@ int main(void)
         if (read_file("test/tests/delta-main.txt") != read_file("test/tests/clang-main.txt")) log_file << "Test doesn't complete: " << file.path().string() << "\n";
         else log_file << "Test does complete: " << file.path().string() << "\n";
 
-        system("rm -rf test/tests/delta-main.txt test/tests/clang-main.txt test/tests/main.o");
+        system("rm -rf test/tests/delta-main.txt test/tests/clang-main.txt");
         system(std::string("rm -rf " + file.path().parent_path().string() + "/" + file.path().stem().string() + ".S " + file.path().parent_path().string() + "/" + file.path().stem().string() + ".ll").c_str());
     }
+
+    system("rm -rf test/tests/main.o");
 
     log_file.close();
 }
