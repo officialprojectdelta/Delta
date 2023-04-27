@@ -29,6 +29,8 @@ enum class NodeKind
     MUL, 
     DIV, 
     MOD,
+    AND,
+    OR,
     NOT, 
     NEG, 
     BITCOMPL,
@@ -36,8 +38,6 @@ enum class NodeKind
     PREFIXDEC,
     POSTFIXINC,
     POSTFIXDEC,
-    AND,
-    OR,
     EQ,
     NOTEQ,
     LESS,
@@ -182,6 +182,9 @@ struct TernNode : Node
     Node* condition = nullptr;
     Node* lhs = nullptr;
     Node* rhs = nullptr;
+
+    // This is used because we can make AND and OR into ternary, and this makes the output a boolean value like && and ||
+    bool forceboolout = false;
 
     virtual void visit(std::string* write) override;
 

@@ -426,65 +426,6 @@ void BinaryOpNode::visit(std::string* write)
         {NodeKind::LESSEQ, "le"},
     });
 
-    if (op == NodeKind::AND)
-    {
-        // The lable that the automatic false will come from in phi
-        size_t auto_false = next_temp++;
-        sprinta(write, "    br label %", auto_false, "\n\n");
-        sprinta(write, auto_false, ":\n");
-
-        lhs->visit(write);
-        cast(write, Type{TypeKind::BOOL, 1}, result_type, result);
-        std::string result_1 = result;
-        size_t if_true = next_temp++;
-        // If the first condition is false jump straight to end and phi [false, autO_false]
-        // Otherwise jump to if_true, execute second condition, do icmp
-        // Second part of phi is [second_condition_bool, if_true]
-        std::string if_true_statement;
-        rhs->visit(&if_true_statement);
-        cast(&if_true_statement, Type{TypeKind::BOOL, 1}, result_type, result);
-        sprinta(write, "    br i1 ", result_1, ", label %", if_true, ", label %", auto_false, "\n\n");
-        sprinta(write, if_true, ":\n");
-        sprinta(write, if_true_statement);
-        sprinta(write, "    br label %", next_temp, "\n\n");
-        sprinta(write, next_temp++, ":\n");
-        sprinta(write, "    %", next_temp++, " = phi i1 [ false, %", auto_false, " ], [ ", result, ", %", if_true, " ]\n");
-        location = "";
-        returned = false;
-        result = "%" + std::to_string(next_temp - 1);
-        result_type = Type{TypeKind::BOOL, 1};
-        return;
-    }
-    else if (op == NodeKind::OR)
-    {
-        // The lable that the automatic true will come from in phi
-        size_t auto_true = next_temp++;
-        sprinta(write, "    br label %", auto_true, "\n\n");
-        sprinta(write, auto_true, ":\n");
-
-        lhs->visit(write);
-        cast(write, Type{TypeKind::BOOL, 1}, result_type, result);
-        std::string result_1 = result;
-        size_t if_false = next_temp++;
-        // If the first condition is true jump straight to end and phi [true, auto_true]
-        // Otherwise jump to if_false, execute second condition, do icmp
-        // Second part of phi is [second_condition_bool, if_false]
-        std::string if_false_statement;
-        rhs->visit(&if_false_statement);
-        cast(&if_false_statement, Type{TypeKind::BOOL, 1}, result_type, result);
-        sprinta(write, "    br i1 ", result_1, ", label %", next_temp, ", label %", if_false, "\n\n");
-        sprinta(write, if_false, ":\n");
-        sprinta(write, if_false_statement);
-        sprinta(write, "    br label %", next_temp, "\n\n");
-        sprinta(write, next_temp++, ":\n");
-        sprinta(write, "    %", next_temp++, " = phi i1 [ true, %", auto_true, " ], [ ", result, ", %", if_false, " ]\n");
-        location = "";
-        returned = false;
-        result = "%" + std::to_string(next_temp - 1);
-        result_type = Type{TypeKind::BOOL, 1};
-        return;
-    }
-
     // Convert types
     lhs->visit(write);
     std::string lhs_result = result;
@@ -571,11 +512,55 @@ void BinaryOpNode::visit(std::string* write)
 
 void TernNode::visit(std::string* write)
 {
-    sprinta(write, "Ternary: \n");
-
     condition->visit(write);
+    cast(write, Type{TypeKind::BOOL, 1}, result_type, result);
+    std::string condition_result = result;
+    location = ""; 
+    returned = false; 
+    literal_value = "";
+
+    // Convert types
     lhs->visit(write);
+    std::string lhs_result = result;
+    Type lhs_type = result_type;
+    std::string lhs_location = location;
+    std::string lhs_lit_val = literal_value;
+    location = ""; 
+    returned = false; 
+    literal_value = "";
+
     rhs->visit(write);
+    std::string rhs_result = result;
+    Type rhs_type = result_type;
+    std::string rhs_lit_val = literal_value;
+    location = ""; 
+    returned = false; 
+    literal_value = "";
+
+    Type convert_to = this->forceboolout ? Type{TypeKind::BOOL, 1} : expl_cast(lhs_type, rhs_type);
+
+    if (lhs_type != convert_to)
+    {
+        literal_value = lhs_lit_val;
+        cast(write, convert_to, lhs_type, lhs_result);
+        lhs_result = result;
+    }
+
+    if (rhs_type != convert_to)
+    {
+        literal_value = rhs_lit_val;
+        cast(write, convert_to, rhs_type, rhs_result);
+        rhs_result = result;
+    }
+
+    // Always use select
+    sprinta(write, "    %", next_temp++, " = select i1 ", condition_result, ", ", type_to_il_str[convert_to], " ", lhs_result, ", ", type_to_il_str[convert_to], " ", rhs_result, "\n");
+
+    result = next_temp - 1;
+    result_type = convert_to;
+    location = ""; 
+    returned = false; 
+    literal_value = "";
 }
 
 void LiteralNode::visit(std::string* write)

@@ -402,6 +402,39 @@ Node* parse_exp(Tokenizer& tokens, size_t min_prec)
 
             tern->rhs = parse_exp(tokens, 0);
         }
+        else if (tokens.cur().type == TokenType::OR || tokens.cur().type == TokenType::AND)
+        {
+            // Build OR and AND as a ternary node because it is less code
+            TernNode* tern = new TernNode;
+            tern->condition = lhs;
+            lhs = tern;
+
+            auto precAssoc = prec_map[tokens.cur().type];
+            size_t nextMinimumPrec = precAssoc.second ? precAssoc.first : precAssoc.first + 1;
+
+            if (tokens.cur().type == TokenType::OR)
+            {
+                LiteralNode* lhs = new LiteralNode;
+                lhs->type = Type{TypeKind::BOOL, 1};
+                lhs->value = Token{TokenType::INTV, "1"};
+
+                tern->lhs = lhs;
+                tokens.inc();
+                if (tokens.cur().type == TokenType::SEMI) throw compiler_error("Expected expression before semicolon");
+                tern->rhs = parse_exp(tokens, nextMinimumPrec);
+            }
+            else
+            {
+                LiteralNode* rhs = new LiteralNode;
+                rhs->type = Type{TypeKind::BOOL, 1};
+                rhs->value = Token{TokenType::INTV, "0"};
+
+                tern->rhs = rhs;
+                tokens.inc();
+                if (tokens.cur().type == TokenType::SEMI) throw compiler_error("Expected expression before semicolon");
+                tern->lhs = parse_exp(tokens, nextMinimumPrec);
+            }
+        }
         else
         {
             BinaryOpNode* rval = new BinaryOpNode;
