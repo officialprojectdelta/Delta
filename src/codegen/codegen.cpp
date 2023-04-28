@@ -210,27 +210,27 @@ std::string codegen(Node* node)
 
     // Just cover the bases
     // Fix double branches
-    size_t i = output.find("    br");
+    size_t i = output.find("    br ");
+    size_t temp = output.find("    ret");
+    i = temp > i ? i : temp;
     while (i != std::string::npos)
     {
-        size_t j = output.find("    br", i + 12);
-        size_t k = output.find(":", i);
+        size_t j = output.find("    br ", i + 7);
+        temp = output.find("    ret", i + 7);
+        j = temp > j ? j : temp;
+        size_t k = output.find("\n", i);
+        k = output.find("\n", k + 1);
+        while (output[k - 1] == '\n') k = output.find("\n", k + 1);
 
         if (j == std::string::npos) break;
-        if (k > j) output.erase(j, output.find("\n", j) - j + 1);
-        i = j;
-    }
-
-    i = output.find("    ret");
-    while (i != std::string::npos)
-    {
-        size_t j = output.find(":", i);
-        if (j == std::string::npos) break;
-        j = output.rfind("\n", j - 1);
-        j = output.rfind("\n", j - 1);
-
-        output.erase(output.find("\n", i) + 1, j - output.find("\n", i));
-        i = output.find("    ret", i + 1);
+        if (k > j) 
+        {
+            output.erase(j, k - j + 1);
+            size_t i = output.find("    br ");
+            size_t temp = output.find("    ret");
+            i = temp > i ? i : temp;
+        }
+        else i = j;
     }
 
     return output;
@@ -283,13 +283,12 @@ void FunctionNode::visit(std::string* write)
             {
                 sprinta(write, type_to_il_str[arg.type], ", ");
             }
-
+            
             if (args.size() != 0)
             {
                 write->pop_back();
                 write->pop_back();
             }
-            
             sprinta(write, ") ");
         }
         else
@@ -315,7 +314,6 @@ void FunctionNode::visit(std::string* write)
                 write->pop_back();
                 write->pop_back();
             }
-
             sprinta(write, ") ");
         }
     }
