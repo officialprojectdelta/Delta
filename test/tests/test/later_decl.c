@@ -3,7 +3,7 @@ int foo(int a) {
 }
 
 int test() {
-    return foo(4);
+    return foo(1);
 }
 
 int foo(int a);

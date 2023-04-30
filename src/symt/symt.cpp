@@ -10,8 +10,12 @@ void generate_symtables(Node* node)
 
 void FunctionNode::visit_symt()
 {
-    if (function_definitions.contains(this->name.value) && function_definitions[this->name.value].defined) throw compiler_error("Redefinition of function %s\n", this->name.value.c_str());
     bool defined = this->statements.forward.size() == 0 ? false : true;
+    if (function_definitions.contains(this->name.value) && function_definitions[this->name.value].defined)
+    {
+        if (defined) throw compiler_error("Redefinition of function %s\n", this->name.value.c_str());
+        else return;
+    }
     std::unordered_map<std::string, size_t> arg_to_il_name;
     size_t j = 0;
     for (auto i = std::begin(this->args); i != std::end(this->args); i++, j++)
