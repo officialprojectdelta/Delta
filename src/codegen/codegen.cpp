@@ -41,7 +41,7 @@ std::unordered_map<TypeKind, std::string> after_decimal({
 
 Type literal_cast(Type dst, Type src, const std::string& literal)
 {
-    if (literal[0] != '%' && src != dst)
+    if (literal[0] != '%' && src != dst && src.t_kind != TypeKind::BOOL && dst.t_kind != TypeKind::BOOL)
     {
         if (dst.t_kind == TypeKind::INT || (dst.t_kind == TypeKind::UNSIGNED && dst.t_kind == TypeKind::UNSIGNED))
         {
@@ -174,10 +174,14 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
         if (src.size_of > dst.size_of) cast = "trunc";
         else if (src.size_of == dst.size_of) 
         {
-            result_type = dst;
-            location = ""; 
-            literal_value = "";
-            return;
+            if (src.t_kind == TypeKind::BOOL && dst.t_kind != TypeKind::BOOL) cast = "zext";
+            else
+            {
+                result_type = dst;
+                location = ""; 
+                literal_value = "";
+                return;
+            }
         }
         else if (src.t_kind == TypeKind::INT) cast = "sext";
         else if (src.t_kind == TypeKind::UNSIGNED || dst.t_kind == TypeKind::UNSIGNED || src.t_kind == TypeKind::BOOL) cast = "zext";
@@ -253,6 +257,7 @@ void BlockStmtNode::visit(std::string* write)
 {
     var_map.emplace_back();
 
+
     for (auto x = forward.begin(); x != forward.end(); x++)
     {
         (*x)->visit(write);
@@ -270,6 +275,7 @@ void TerminatorCheckNode::visit(std::string* write)
 
 void FunctionNode::visit(std::string* write)
 {
+    terminator = false;
     std::string init_variable_allocs;
     var_map.emplace_back();
     // Only do declarations if no definition exists
