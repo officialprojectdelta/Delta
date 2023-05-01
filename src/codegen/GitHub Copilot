@@ -1,8 +1,0 @@
-Synthesizing 1/10 solutions
-
-=======
-Suggestion 1
-
-    std::string rhs_exec;
-    size_t rhs_begin = next_temp++;
-    std::string next_temp = "%" + std::to_string(this->next_temp++);
