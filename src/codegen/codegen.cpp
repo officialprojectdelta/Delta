@@ -7,6 +7,8 @@
 #include <cstdio> 
 #include <exception>
 
+#define DIGITS "0123456789"
+
 // The output string
 std::string output;
 
@@ -122,7 +124,7 @@ Type literal_cast(Type dst, Type src, const std::string& literal)
             src = dst;
         }
     }
-    else 
+    else
     {
         return {TypeKind::NULLTP, 0};
     }
@@ -132,6 +134,7 @@ Type literal_cast(Type dst, Type src, const std::string& literal)
 
 void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cast)
 {
+    // Potential for result bugs maybe?
     result_type = literal_cast(dst, src, temp_to_cast);
     if (result_type != Type{TypeKind::NULLTP, 0}) 
     {
@@ -144,15 +147,15 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
 
     if (dst.t_kind == TypeKind::BOOL)
     {
-        if (src.t_kind == TypeKind::INT) sprinta(write, "    %", next_temp++, " = icmp ne ", type_to_il_str[src], " ", result, ", 0\n");
-        else if (src.t_kind == TypeKind::FLOAT) sprinta(write, "    %", next_temp++, " = fcmp une ", type_to_il_str[src], " ", result, ", 0.000000e+00\n");
+        if (src.t_kind == TypeKind::INT) sprinta(write, "    %", next_temp++, " = icmp ne ", type_to_il_str[src], " ", temp_to_cast, ", 0\n");
+        else if (src.t_kind == TypeKind::FLOAT) sprinta(write, "    %", next_temp++, " = fcmp une ", type_to_il_str[src], " ", temp_to_cast, ", 0.000000e+00\n");
         else if (src.t_kind == TypeKind::BOOL) 
         {
             location = ""; 
             literal_value = "";
             return;
         }
-        else throw compiler_error("Invalid type %s\n", type_to_il_str[result_type].c_str());
+        else throw compiler_error("Invalid type %s\n", type_to_il_str[src].c_str());
 
         result = "%" + std::to_string(next_temp - 1);
         result_type = Type{TypeKind::BOOL, 1};
@@ -507,24 +510,44 @@ void BinaryOpNode::visit(std::string* write)
     literal_value = "";
 }
 
-void TernNode::visit(std::string* write)
+size_t find_last_label(std::string* write)
 {
+    size_t last_label_loc = write->rfind(':');
+    if (last_label_loc == std::string::npos) last_label_loc = 0;
+    if (last_label_loc > (write->rfind('{') == std::string::npos ? 0 : write->rfind('{')))
+    {
+        size_t i = last_label_loc - 1;
+        while (std::string(DIGITS).find(write->at(i)) != std::string::npos) i--;
+        last_label_loc = std::stoull(write->substr(i + 1, last_label_loc - i - 1));
+    }
+    else last_label_loc = 0;
+    
+    return last_label_loc;
+}
+
+void TernNode::visit(std::string* write)
+{   
+    // Convert types
     condition->visit(write);
     cast(write, Type{TypeKind::BOOL, 1}, result_type, result);
     std::string condition_result = result;
     location = ""; 
     literal_value = "";
 
-    // Convert types
-    lhs->visit(write);
+    size_t lhs_begin = next_temp++;
+
+    std::string lhs_exec;
+    lhs->visit(&lhs_exec);
     std::string lhs_result = result;
     Type lhs_type = result_type;
-    std::string lhs_location = location;
     std::string lhs_lit_val = literal_value;
     location = ""; 
     literal_value = "";
 
-    rhs->visit(write);
+    size_t save_next_temp = next_temp++;
+
+    std::string blank;
+    rhs->visit(&blank);
     std::string rhs_result = result;
     Type rhs_type = result_type;
     std::string rhs_lit_val = literal_value;
@@ -532,23 +555,43 @@ void TernNode::visit(std::string* write)
     literal_value = "";
 
     Type convert_to = this->forceboolout ? Type{TypeKind::BOOL, 1} : expl_cast(lhs_type, rhs_type);
+    next_temp = save_next_temp;
 
     if (lhs_type != convert_to)
     {
         literal_value = lhs_lit_val;
-        cast(write, convert_to, lhs_type, lhs_result);
+        cast(&lhs_exec, convert_to, lhs_type, lhs_result);
         lhs_result = result;
     }
+    
+    size_t rhs_begin = next_temp++;
+
+    std::string rhs_exec;
+    rhs->visit(&rhs_exec);
+    rhs_result = result;
+    rhs_type = result_type;
+    rhs_lit_val = literal_value;
+    location = ""; 
+    literal_value = "";
 
     if (rhs_type != convert_to)
     {
         literal_value = rhs_lit_val;
-        cast(write, convert_to, rhs_type, rhs_result);
+        cast(&rhs_exec, convert_to, rhs_type, rhs_result);
         rhs_result = result;
     }
 
-    // Always use select
-    sprinta(write, "    %", next_temp++, " = select i1 ", condition_result, ", ", type_to_il_str[convert_to], " ", lhs_result, ", ", type_to_il_str[convert_to], " ", rhs_result, "\n");
+    sprinta(write, "    br i1 ", condition_result, ", label %", lhs_begin, ", label %", rhs_begin, "\n\n");
+    sprinta(write, lhs_begin, ":\n");
+    sprinta(write, lhs_exec);
+    size_t lhs_phi_loc = find_last_label(write);
+    sprinta(write, "    br label %", next_temp, "\n\n");
+    sprinta(write, rhs_begin, ":\n");
+    sprinta(write, rhs_exec);
+    size_t rhs_phi_loc = find_last_label(write);
+    sprinta(write, "    br label %", next_temp, "\n\n");
+    sprinta(write, next_temp++, ":\n");
+    sprinta(write, "    %", next_temp++, " = phi ", type_to_il_str[convert_to], " [ ", lhs_result, ", %", lhs_phi_loc, " ], [ ", rhs_result, ", %", rhs_phi_loc, " ]\n");
 
     result = "%" + std::to_string(next_temp - 1);
     result_type = convert_to;
