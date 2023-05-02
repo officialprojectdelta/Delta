@@ -466,8 +466,8 @@ void BinaryOpNode::visit(std::string* write)
         if (arith_op_to_str.contains(op))
         {
             std::string before_char = "";
-            if (op == NodeKind::DIV && convert_to.t_kind == TypeKind::INT) before_char = "s";
-            if (op == NodeKind::DIV && convert_to.t_kind == TypeKind::UNSIGNED) before_char = "u";
+            if ((op == NodeKind::DIV || op == NodeKind::MOD) && convert_to.t_kind == TypeKind::INT) before_char = "s";
+            if ((op == NodeKind::DIV || op == NodeKind::MOD) && convert_to.t_kind == TypeKind::UNSIGNED) before_char = "u";
             if (convert_to.t_kind == TypeKind::FLOAT) before_char = "f";
             // Output operation
             sprinta(write, "    %", next_temp++, " = ", before_char, arith_op_to_str[op], " ", type_to_il_str[convert_to], " ", lhs_result, ", ", rhs_result, "\n");
@@ -809,8 +809,6 @@ void ForNode::visit(std::string* write)
     location = "";
     literal_value = "";
 
-    
-
     size_t i = execute.find("{break}");
     while (i != std::string::npos)
     {
@@ -826,7 +824,7 @@ void ForNode::visit(std::string* write)
     {
         execute.erase(i, 10);
         std::string input_this;
-        sprinta(&input_this, "    br label %", next_temp, "\n\n");
+        sprinta(&input_this, "    br label %", end_loop_label, "\n\n");
         execute.insert(i, input_this);
         i = execute.find("{continue}", i);
     }
