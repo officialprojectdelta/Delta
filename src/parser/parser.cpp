@@ -48,7 +48,7 @@ ProgramNode* parse_program(Tokenizer& tokens)
     while (tokens.getPos() < tokens.size())
     {
         size_t before_type = tokens.getPos();
-        gen_expl_type(tokens);
+        gen_expl_type(tokens, {TypeKind::NULLTP, 0});
         size_t after_type = tokens.getPos();
         tokens.setPos(before_type);
 
@@ -75,7 +75,7 @@ FunctionNode* parse_function(Tokenizer& tokens)
 {   
     FunctionNode* current = new FunctionNode;
 
-    Type type = gen_expl_type(tokens);
+    Type type = gen_expl_type(tokens, {TypeKind::NULLTP, 0});
     if (type.t_kind == TypeKind::NULLTP) throw compiler_error("Expected return type of function before identifier");
     if (tokens.cur().type != TokenType::IDENT) throw compiler_error("Expected identifier or \'(\' before \'%s\' token", tokens.cur().value.c_str());
 
@@ -93,7 +93,7 @@ FunctionNode* parse_function(Tokenizer& tokens)
         while (true)
         {
             current->args.emplace_back();
-            Type type = gen_expl_type(tokens);
+            Type type = gen_expl_type(tokens, {TypeKind::NULLTP, 0});
             if (!type) throw compiler_error("Expected type of arg before identifier");
             if (tokens.cur().type != TokenType::IDENT) throw compiler_error("Expected identifier as argument");
             
@@ -136,7 +136,7 @@ FunctionNode* parse_function(Tokenizer& tokens)
 DeclNode* do_decl(Tokenizer& tokens)
 {
     DeclNode* decl = new DeclNode;
-    decl->type = gen_expl_type(tokens);
+    decl->type = gen_expl_type(tokens, {TypeKind::NULLTP, 0});
     decl->name = tokens.cur();
     tokens.inc();
 
@@ -154,9 +154,9 @@ DeclNode* do_decl(Tokenizer& tokens)
 bool check_type(Tokenizer& tokens)
 {
     size_t pos = tokens.getPos();
-    bool retVal = gen_expl_type(tokens).t_kind != TypeKind::NULLTP;
+    bool rval = gen_expl_type(tokens, {TypeKind::NULLTP, 0}).t_kind != TypeKind::NULLTP;
     tokens.setPos(pos);
-    return retVal;
+    return rval;
 }
 
 // Make sure declarations arn't in if statements that don't create a new scope
@@ -574,6 +574,8 @@ Node* parse_base_atom(Tokenizer& tokens)
                     {TokenType::BITCOMPL, NodeKind::BITCOMPL},
                     {TokenType::INC, NodeKind::PREFIXINC},
                     {TokenType::DEC, NodeKind::PREFIXDEC},
+                    {TokenType::MUL, NodeKind::DEREF},
+                    {TokenType::ADDR, NodeKind::ADDR},
                 });
 
                 if (!convert.contains(tokens.cur().type)) throw compiler_error("Couldn't build an atom from: %s", tokens.cur().value.c_str()); 

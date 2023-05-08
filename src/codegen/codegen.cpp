@@ -49,25 +49,25 @@ Type literal_cast(Type dst, Type src, const std::string& literal)
         {
             if (src.t_kind == TypeKind::FLOAT)
             {
-                if (dst.size_of == 1) result = std::to_string((char) std::stod(literal_value));
-                else if (dst.size_of == 2) result = std::to_string((short) std::stod(literal_value));
-                else if (dst.size_of == 4) result = std::to_string((int) std::stod(literal_value));
+                if (dst.size_of() == 1) result = std::to_string((char) std::stod(literal_value));
+                else if (dst.size_of() == 2) result = std::to_string((short) std::stod(literal_value));
+                else if (dst.size_of() == 4) result = std::to_string((int) std::stod(literal_value));
                 else result = std::to_string(std::stol(literal_value));
 
                 src = dst;
             }
             else if (src.t_kind == TypeKind::INT)
             {
-                if (dst.size_of > src.size_of)
+                if (dst.size_of() > src.size_of())
                 {
                     result = std::to_string((long) std::stol(literal_value));
                     src = dst;
                 }
                 else 
                 {
-                    if (dst.size_of == 1) result = std::to_string((char) std::stol(literal_value));
-                    else if (dst.size_of == 2) result = std::to_string((short) std::stol(literal_value));
-                    else if (dst.size_of == 4) result = std::to_string((int) std::stol(literal_value));
+                    if (dst.size_of() == 1) result = std::to_string((char) std::stol(literal_value));
+                    else if (dst.size_of() == 2) result = std::to_string((short) std::stol(literal_value));
+                    else if (dst.size_of() == 4) result = std::to_string((int) std::stol(literal_value));
                     else result = literal_value;
 
                     src = dst;
@@ -75,16 +75,16 @@ Type literal_cast(Type dst, Type src, const std::string& literal)
             }
             else if (src.t_kind == TypeKind::UNSIGNED)
             {
-                if (dst.size_of > src.size_of)
+                if (dst.size_of() > src.size_of())
                 {
                     result = std::to_string(std::stol(literal_value));
                     src = dst;
                 }
                 else 
                 {
-                    if (dst.size_of == 1) result = std::to_string((unsigned char) std::stoul(literal_value));
-                    else if (dst.size_of == 2) result = std::to_string((unsigned short) std::stoul(literal_value));
-                    else if (dst.size_of == 4) result = std::to_string((unsigned int) std::stoul(literal_value));
+                    if (dst.size_of() == 1) result = std::to_string((unsigned char) std::stoul(literal_value));
+                    else if (dst.size_of() == 2) result = std::to_string((unsigned short) std::stoul(literal_value));
+                    else if (dst.size_of() == 4) result = std::to_string((unsigned int) std::stoul(literal_value));
                     else result = std::to_string((unsigned long) std::stoul(literal_value)); 
 
                     src = dst;
@@ -93,16 +93,16 @@ Type literal_cast(Type dst, Type src, const std::string& literal)
         }
         else if (dst.t_kind == TypeKind::UNSIGNED && src.t_kind == TypeKind::INT) 
         {
-            if (dst.size_of > src.size_of)
+            if (dst.size_of() > src.size_of())
             {
                 result = std::to_string((long) std::stol(literal_value));
                 src = dst;
             }
             else 
             {
-                if (dst.size_of == 1) result = std::to_string((unsigned char) std::stoul(literal_value));
-                else if (dst.size_of == 2) result = std::to_string((unsigned short) std::stoul(literal_value));
-                else if (dst.size_of == 4) result = std::to_string((unsigned int) std::stoul(literal_value));
+                if (dst.size_of() == 1) result = std::to_string((unsigned char) std::stoul(literal_value));
+                else if (dst.size_of() == 2) result = std::to_string((unsigned short) std::stoul(literal_value));
+                else if (dst.size_of() == 4) result = std::to_string((unsigned int) std::stoul(literal_value));
                 else result = std::to_string((unsigned long) std::stoul(literal_value));
 
                 src = dst;
@@ -110,9 +110,9 @@ Type literal_cast(Type dst, Type src, const std::string& literal)
         }
         else if (dst.t_kind == TypeKind::UNSIGNED && src.t_kind == TypeKind::FLOAT)
         {
-            if (dst.size_of == 1) result = std::to_string((unsigned char) std::stod(literal_value));
-            else if (dst.size_of == 2) result = std::to_string((unsigned short) std::stod(literal_value));
-            else if (dst.size_of == 4) result = std::to_string((unsigned int) std::stod(literal_value));
+            if (dst.size_of() == 1) result = std::to_string((unsigned char) std::stod(literal_value));
+            else if (dst.size_of() == 2) result = std::to_string((unsigned short) std::stod(literal_value));
+            else if (dst.size_of() == 4) result = std::to_string((unsigned int) std::stod(literal_value));
             else result = std::to_string((unsigned long) std::stod(literal_value));
 
             src = dst;
@@ -147,15 +147,15 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
 
     if (dst.t_kind == TypeKind::BOOL)
     {
-        if (src.t_kind == TypeKind::INT) sprinta(write, "    %", next_temp++, " = icmp ne ", type_to_il_str[src], " ", temp_to_cast, ", 0\n");
-        else if (src.t_kind == TypeKind::FLOAT) sprinta(write, "    %", next_temp++, " = fcmp une ", type_to_il_str[src], " ", temp_to_cast, ", 0.000000e+00\n");
+        if (src.t_kind == TypeKind::INT) sprinta(write, "    %", next_temp++, " = icmp ne ", type_to_string(src), " ", temp_to_cast, ", 0\n");
+        else if (src.t_kind == TypeKind::FLOAT) sprinta(write, "    %", next_temp++, " = fcmp une ", type_to_string(src), " ", temp_to_cast, ", 0.000000e+00\n");
         else if (src.t_kind == TypeKind::BOOL) 
         {
             location = ""; 
             literal_value = "";
             return;
         }
-        else throw compiler_error("Invalid type %s\n", type_to_il_str[src].c_str());
+        else throw compiler_error("Invalid type %s\n", type_to_string(src).c_str());
 
         result = "%" + std::to_string(next_temp - 1);
         result_type = Type{TypeKind::BOOL, 1};
@@ -165,7 +165,7 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
     }
     else if (src.t_kind == TypeKind::FLOAT && dst.t_kind == TypeKind::FLOAT)
     {
-        if (src.size_of > dst.size_of) cast = "fptrunc";
+        if (src.size_of() > dst.size_of()) cast = "fptrunc";
         else cast = "fpext";
     }
     else if (src.t_kind == TypeKind::FLOAT && dst.t_kind == TypeKind::INT) cast = "fptosi";
@@ -174,8 +174,8 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
     else if (dst.t_kind == TypeKind::FLOAT && src.t_kind == TypeKind::UNSIGNED) cast = "uitofp";
     else 
     {
-        if (src.size_of > dst.size_of) cast = "trunc";
-        else if (src.size_of == dst.size_of) 
+        if (src.size_of() > dst.size_of()) cast = "trunc";
+        else if (src.size_of() == dst.size_of()) 
         {
             if (src.t_kind == TypeKind::BOOL && dst.t_kind != TypeKind::BOOL) cast = "zext";
             else
@@ -197,7 +197,7 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
         }
     }
 
-    sprinta(write, "    %", next_temp++, " = ", cast, " ", type_to_il_str[src], " ", temp_to_cast, " to ", type_to_il_str[dst], "\n");
+    sprinta(write, "    %", next_temp++, " = ", cast, " ", type_to_string(src), " ", temp_to_cast, " to ", type_to_string(dst), "\n");
     result = "%" + std::to_string(next_temp - 1);
     result_type = dst;
     location = ""; 
@@ -206,7 +206,7 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
 
 std::string return_str(Type type)
 {
-    return "    ret " + type_to_il_str[type] + " 0" + after_decimal[type.t_kind] + "\n";
+    return "    ret " + type_to_string(type) + " 0" + after_decimal[type.t_kind] + "\n";
 }
 
 std::string codegen(Node* node)
@@ -282,13 +282,13 @@ void FunctionNode::visit(std::string* write)
     // Only do declarations if no definition exists
     if (!function_definitions[this->name.value].defined || this->defined)
     {
-        sprinta(write, "define dso_local ", type_to_il_str[type], " @", this->name.value, "(");
+        sprinta(write, "define dso_local ", type_to_string(type), " @", this->name.value, "(");
         
         if (!this->defined)
         {
             for (auto arg : args)
             {
-                sprinta(write, type_to_il_str[arg.type], ", ");
+                sprinta(write, type_to_string(arg.type), ", ");
             }
             
             if (args.size() != 0)
@@ -303,7 +303,7 @@ void FunctionNode::visit(std::string* write)
             next_temp = 0;
             for (auto arg : args)
             {
-                sprinta(write, type_to_il_str[arg.type], " %", next_temp++, ", ");
+                sprinta(write, type_to_string(arg.type), " %", next_temp++, ", ");
             }
             next_temp++;
             
@@ -312,8 +312,8 @@ void FunctionNode::visit(std::string* write)
             for (auto arg : args)
             {
                 var_map.back()[arg.tok.value] = {"%" + std::to_string(next_temp), arg.type};
-                sprinta(&init_variable_allocs, "    %", next_temp, " = alloca ", type_to_il_str[arg.type], ", align ", arg.type.size_of, "\n");
-                sprinta(&init_variable_allocs, "    store ", type_to_il_str[arg.type], " %", arg_ctr++, ", ", type_to_il_str[arg.type], "* %", next_temp++, ", align ", arg.type.size_of, "\n");
+                sprinta(&init_variable_allocs, "    %", next_temp, " = alloca ", type_to_string(arg.type), ", align ", arg.type.size_of(), "\n");
+                sprinta(&init_variable_allocs, "    store ", type_to_string(arg.type), " %", arg_ctr++, ", ptr %", next_temp++, ", align ", arg.type.size_of(), "\n");
             }
 
             if (args.size() != 0)
@@ -352,7 +352,7 @@ void UnaryOpNode::visit(std::string* write)
         {
             forward->visit(write);
             if (result_type.t_kind == TypeKind::FLOAT) throw compiler_error("Invalid argument type ", (int) result_type.t_kind, " to unary expression: ", (int) this->op, "\n");
-            sprinta(write, "    %", next_temp, " = xor ", type_to_il_str[result_type], " ", result, ", -1\n");
+            sprinta(write, "    %", next_temp, " = xor ", type_to_string(result_type), " ", result, ", -1\n");
             result = "%" + std::to_string(next_temp++);
             break;
         }
@@ -361,12 +361,12 @@ void UnaryOpNode::visit(std::string* write)
             forward->visit(write);
             if (result_type.t_kind == TypeKind::FLOAT)
             {
-                sprinta(write, "    %", next_temp, " = fneg ", type_to_il_str[result_type], result, "\n");
+                sprinta(write, "    %", next_temp, " = fneg ", type_to_string(result_type), result, "\n");
                 result = "%" + std::to_string(next_temp++);
             }
             else
             {
-                sprinta(write, "    %", next_temp, " = sub ", type_to_il_str[result_type], " 0, ",  result, "\n");
+                sprinta(write, "    %", next_temp, " = sub ", type_to_string(result_type), " 0, ",  result, "\n");
                 result = "%" + std::to_string(next_temp++);
             }
             break;
@@ -377,7 +377,7 @@ void UnaryOpNode::visit(std::string* write)
 
             const char* op = result_type.t_kind == TypeKind::FLOAT ? "fcmp" : "icmp";
             const char* cmp = result_type.t_kind == TypeKind::FLOAT ? "une" : "ne";
-            sprinta(write, "    %", next_temp, " = ", op, " ", cmp, " ", type_to_il_str[result_type], " ", result, ", 0", after_decimal[result_type.t_kind], "\n");
+            sprinta(write, "    %", next_temp, " = ", op, " ", cmp, " ", type_to_string(result_type), " ", result, ", 0", after_decimal[result_type.t_kind], "\n");
             next_temp++;
             sprinta(write, "    %", next_temp, " = xor i1 %", next_temp - 1, ", true\n");
             next_temp++;
@@ -386,18 +386,37 @@ void UnaryOpNode::visit(std::string* write)
             result_type = {TypeKind::INT, 4};
             break;
         }
+        case NodeKind::ADDR:
+        {
+            forward->visit(write);
+            if (location.size() == 0) throw compiler_error("Error: Expected lvalue for to take address of");
+            result = location;
+            result_type.num_pointers++;
+            break;
+        }
+        case NodeKind::DEREF:
+        {
+            forward->visit(write);
+            if (result_type.num_pointers == 0) throw compiler_error("Error: Expected pointer type to derefernce");
+            result_type.num_pointers--;
+            sprinta(write, "    %", next_temp, " = load ", type_to_string(result_type), ", ptr ", result, "\n");
+            location = result;
+            result = "%" + std::to_string(next_temp++);
+            literal_value = "";
+            return;
+        }
         default: 
         {
             forward->visit(write);
-            if (location.size() == 0) throw compiler_error("Error: Expected variable for operation: %d\n", (int) this->op);
+            if (location.size() == 0) throw compiler_error("Error: Expected lvalue for operation: %d\n", (int) this->op);
             std::string op;
             if (this->op == NodeKind::PREFIXINC || this->op == NodeKind::POSTFIXINC) op = "add";
             else if (this->op == NodeKind::PREFIXDEC || this->op == NodeKind::POSTFIXDEC) op = "sub";
             else throw compiler_error("must have forgotten something");
             if (result_type.t_kind == TypeKind::FLOAT) op.insert(op.begin(), 'f');
 
-            sprinta(write, "    %", next_temp++, " = ", op, " ", type_to_il_str[result_type], " ", result, ", 1", after_decimal[result_type.t_kind], "\n");
-            sprinta(write, "    store ", type_to_il_str[result_type], " %", next_temp - 1, ", ", type_to_il_str[result_type], "* ", location, ", align ", result_type.size_of, "\n");
+            sprinta(write, "    %", next_temp++, " = ", op, " ", type_to_string(result_type), " ", result, ", 1", after_decimal[result_type.t_kind], "\n");
+            sprinta(write, "    store ", type_to_string(result_type), " %", next_temp - 1, ", ptr ", location, ", align ", result_type.size_of(), "\n");
             if (this->op == NodeKind::PREFIXINC || this->op == NodeKind::PREFIXDEC) result = "%" + std::to_string(next_temp - 1);
             if (this->op == NodeKind::POSTFIXINC || this->op == NodeKind::POSTFIXDEC) result = "%" + std::to_string(next_temp - 2);
             break;
@@ -468,7 +487,7 @@ void BinaryOpNode::visit(std::string* write)
             if ((op == NodeKind::DIV || op == NodeKind::MOD) && convert_to.t_kind == TypeKind::UNSIGNED) before_char = "u";
             if (convert_to.t_kind == TypeKind::FLOAT) before_char = "f";
             // Output operation
-            sprinta(write, "    %", next_temp++, " = ", before_char, arith_op_to_str[op], " ", type_to_il_str[convert_to], " ", lhs_result, ", ", rhs_result, "\n");
+            sprinta(write, "    %", next_temp++, " = ", before_char, arith_op_to_str[op], " ", type_to_string(convert_to), " ", lhs_result, ", ", rhs_result, "\n");
             result = "%" + std::to_string(next_temp - 1);
         } 
         else
@@ -491,7 +510,7 @@ void BinaryOpNode::visit(std::string* write)
                 if (op != NodeKind::EQ && op != NodeKind::NOTEQ) before_cmp_char = "u";
             }
 
-            sprinta(write, "    %", next_temp++, " = ", before_char, "cmp ", before_cmp_char, cmp_op_to_str[op], " ", type_to_il_str[convert_to], " ", lhs_result, ", ", rhs_result, "\n");
+            sprinta(write, "    %", next_temp++, " = ", before_char, "cmp ", before_cmp_char, cmp_op_to_str[op], " ", type_to_string(convert_to), " ", lhs_result, ", ", rhs_result, "\n");
             result = "%" + std::to_string(next_temp - 1);
             result_type = {TypeKind::BOOL, 1};
         }
@@ -501,7 +520,7 @@ void BinaryOpNode::visit(std::string* write)
         if (lhs_location.size() == 0) throw compiler_error("%s is not a variable", lhs_result.c_str());
         literal_value = rhs_lit_val;
         if (lhs_type != rhs_type) cast(write, lhs_type, rhs_type, rhs_result);
-        sprinta(write, "    store ", type_to_il_str[result_type], " ", result, ", ", type_to_il_str[result_type], "* ", lhs_location, ", align ", result_type.size_of, "\n");
+        sprinta(write, "    store ", type_to_string(result_type), " ", result, ", ptr ", lhs_location, ", align ", result_type.size_of(), "\n");
     }
 
     location = ""; 
@@ -589,7 +608,7 @@ void TernNode::visit(std::string* write)
     size_t rhs_phi_loc = find_last_label(write);
     sprinta(write, "    br label %", next_temp, "\n\n");
     sprinta(write, next_temp++, ":\n");
-    sprinta(write, "    %", next_temp++, " = phi ", type_to_il_str[convert_to], " [ ", lhs_result, ", %", lhs_phi_loc, " ], [ ", rhs_result, ", %", rhs_phi_loc, " ]\n");
+    sprinta(write, "    %", next_temp++, " = phi ", type_to_string(convert_to), " [ ", lhs_result, ", %", lhs_phi_loc, " ], [ ", rhs_result, ", %", rhs_phi_loc, " ]\n");
 
     result = "%" + std::to_string(next_temp - 1);
     result_type = convert_to;
@@ -613,7 +632,7 @@ void VarNode::visit(std::string* write)
     {
         if (i->contains(this->name.value))
         {
-            sprinta(write, "    %", next_temp++, " = load ", type_to_il_str[(*i)[this->name.value].second], ", ", type_to_il_str[(*i)[this->name.value].second], "* ", (*i)[this->name.value].first, ", align ", (*i)[this->name.value].second.size_of, "\n");
+            sprinta(write, "    %", next_temp++, " = load ", type_to_string((*i)[this->name.value].second), ", ptr ", (*i)[this->name.value].first, ", align ", (*i)[this->name.value].second.size_of(), "\n");
             result = "%" + std::to_string(next_temp - 1);
             result_type = (*i)[this->name.value].second;
             location = (*i)[this->name.value].first;
@@ -623,7 +642,7 @@ void VarNode::visit(std::string* write)
 
     if (global_definitions.contains(this->name.value))
     {
-        sprinta(write, "    %", next_temp++, " = load ", type_to_il_str[global_definitions[this->name.value].type], ", ", type_to_il_str[global_definitions[this->name.value].type], "* @", global_definitions[this->name.value].name, ", align ", global_definitions[this->name.value].type.size_of, "\n");
+        sprinta(write, "    %", next_temp++, " = load ", type_to_string(global_definitions[this->name.value].type), ", ptr @", global_definitions[this->name.value].name, ", align ", global_definitions[this->name.value].type.size_of(), "\n");
         result = "%" + std::to_string(next_temp - 1);
         result_type = global_definitions[this->name.value].type;
         location = "@" + global_definitions[this->name.value].name;
@@ -649,10 +668,10 @@ void FuncallNode::visit(std::string* write)
     {
         (*i)->visit(write);
         if (result_type != function_definitions[this->name.value].args[0].type) cast(write, function_definitions[this->name.value].args[0].type, result_type, result);
-        sprinta(&funcall_args, type_to_il_str[result_type], " ", result, ", ");
+        sprinta(&funcall_args, type_to_string(result_type), " ", result, ", ");
     }
 
-    sprinta(write, "    %", next_temp++, " = call ", type_to_il_str[function_definitions[this->name.value].type], " @", this->name.value, "(", funcall_args);
+    sprinta(write, "    %", next_temp++, " = call ", type_to_string(function_definitions[this->name.value].type), " @", this->name.value, "(", funcall_args);
 
     if (args.size() != 0) 
     {
@@ -674,7 +693,7 @@ void DeclNode::visit(std::string* write)
     {
         if ((this->defined && global_definitions[this->name.value].defined) || !global_definitions[this->name.value].defined)
         {
-            sprinta(write, "@", this->name.value, " = dso_local global ", type_to_il_str[this->type], " ");
+            sprinta(write, "@", this->name.value, " = dso_local global ", type_to_string(this->type), " ");
 
             if (assign) 
             {
@@ -687,23 +706,24 @@ void DeclNode::visit(std::string* write)
                 sprinta(write, result);
             }
             else sprinta(write, "0", after_decimal[type.t_kind]);
-            sprinta(write, ", align ", type.size_of, "\n\n");
+            sprinta(write, ", align ", type.size_of(), "\n\n");
         } 
     }  
     else 
     {
         if (var_map.back().contains(this->name.value)) throw compiler_error("Redefinition of local variable %s", this->name.value.c_str());
         var_map.back()[this->name.value] = {"%" + std::to_string(next_temp++), this->type};
-        sprinta(write, "    ", var_map.back()[this->name.value].first, " = alloca ", type_to_il_str[this->type], ", align ", this->type.size_of, "\n");
+        sprinta(write, "    ", var_map.back()[this->name.value].first, " = alloca ", type_to_string(this->type), ", align ", this->type.size_of(), "\n");
         if (assign) 
         {
             assign->visit(write);
             if (result_type != this->type) cast(write, this->type, result_type, result);
-            sprinta(write, "    store ", type_to_il_str[this->type], " ", result, ", ", type_to_il_str[this->type], "* ", var_map.back()[this->name.value].first, ", align ", this->type.size_of, "\n");
+            sprinta(write, "    store ", type_to_string(this->type), " ", result, ", ptr ", var_map.back()[this->name.value].first, ", align ", this->type.size_of(), "\n");
         }
         else
         {
-            sprinta(write, "    store ", type_to_il_str[this->type], " 0", after_decimal[this->type.t_kind], ", ", type_to_il_str[this->type], "* ", var_map.back()[this->name.value].first, ", align ", this->type.size_of, "\n");
+            std::string null_value = this->type.num_pointers ? "null" : "0" + after_decimal[this->type.t_kind];
+            sprinta(write, "    store ", type_to_string(this->type), " ", null_value, ", ptr ", var_map.back()[this->name.value].first, ", align ", this->type.size_of(), "\n");
         }
     } 
 }
@@ -727,7 +747,7 @@ void RetNode::visit(std::string* write)
     terminator = true;
     value->visit(write);
     if (result_type != return_type) cast(write, return_type, result_type, result);
-    sprinta(write, "    ret ", type_to_il_str[result_type], " ", result, "\n");
+    sprinta(write, "    ret ", type_to_string(result_type), " ", result, "\n");
 }
 
 void IfNode::visit(std::string* write)

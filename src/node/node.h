@@ -49,6 +49,8 @@ enum class NodeKind
     LIT, 
     DECL,
     VAR, 
+    ADDR,
+    DEREF, 
     NOEXPR,
     NOKIND
 };

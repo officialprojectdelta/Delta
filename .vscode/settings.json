@@ -88,7 +88,8 @@
         "stop_token": "cpp",
         "thread": "cpp",
         "cfenv": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "span": "cpp"
     },
     "C_Cpp.errorSquiggles": "Disabled",
     "githubPullRequests.ignoredPullRequestBranches": [

@@ -22,11 +22,13 @@ enum class TypeKind
 struct Type
 {
     TypeKind t_kind;
-    size_t size_of;
+    size_t size;
+    size_t num_pointers = 0;
 
-    bool operator==(const Type& type) const { return this->t_kind == type.t_kind && this->size_of == type.size_of; }
-    bool operator!=(const Type& type) const { return !(this->t_kind == type.t_kind && this->size_of == type.size_of); }
-    operator bool() { return t_kind != TypeKind::NULLTP; }
+    bool operator==(const Type& type) const { return this->t_kind == type.t_kind && this->size == type.size && this->num_pointers == type.num_pointers; }
+    bool operator!=(const Type& type) const { return !(this->t_kind == type.t_kind && this->size == type.size && this->num_pointers == type.num_pointers); }
+    operator bool() const { return t_kind != TypeKind::NULLTP; }
+    size_t size_of() const { return num_pointers ? 8 : size; }
 };
 
 struct TwoType
@@ -50,7 +52,7 @@ namespace std {
     struct hash<Type> {
         inline size_t operator()(const Type& type) const {
             std::hash<TypeKind> hasher;
-            return hash_combine(hasher(type.t_kind), type.size_of);
+            return hash_combine(hash_combine(hasher(type.t_kind), type.size_of()), type.num_pointers);
         }
     };
 
@@ -68,9 +70,8 @@ Type gen_const_type(Tokenizer& tokens);
 // Generates the result type from 2 types
 Type expl_cast(const Type& lhs, const Type& rhs);
 // Generates a type from a explicit type token like float
-Type gen_expl_type(Tokenizer& tokens);
+Type gen_expl_type(Tokenizer& tokens, Type type);
 // Converts a string float to a hexadecimal floats
 std::string strfloat_to_hexfloat(const std::string& str, Type type);
-
-// Converts a type to a string
-extern std::unordered_map<Type, std::string> type_to_il_str;
+// Converts a type to a string 
+std::string type_to_string(const Type& type);

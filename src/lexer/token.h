@@ -49,7 +49,8 @@ enum class TokenType
     DO,
     BREAK,
     CONTINUE,
-    ASSIGN, 
+    ASSIGN,
+    ADDR, 
     INTV,
     FLOATV,
     IDENT,
@@ -98,6 +99,7 @@ public:
     
     Token cur() { return tokens.at(pos); };
     Token cur(size_t idx) { return tokens.at(pos + idx); }
+    Token prev() { return tokens.at(pos - 1); }
     Token inc() { pos++; return tokens.at(pos - 1); }
     Token next() { if (pos + 1 >= tokens.size()) return Token(TokenType::NULLTOK); return tokens.at(pos + 1); }
     size_t size() { return tokens.size(); }

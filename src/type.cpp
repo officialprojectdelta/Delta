@@ -4,6 +4,7 @@
 // std
 #include <array>
 #include <unordered_map>
+#include <unordered_set>
 #include <sstream>
 
 std::unordered_map<Type, std::string> type_to_il_str({
@@ -48,53 +49,49 @@ Type gen_const_type(Tokenizer& tokens)
 }
 
 // Generates an explicit type (ie from a variable declaration or a cast)
-Type gen_expl_type(Tokenizer& tokens)
+Type gen_expl_type(Tokenizer& tokens, Type type)
 {
-    switch (tokens.cur().type)
+    std::unordered_map<TokenType, Type> type_map({
+        {TokenType::TLONG, {TypeKind::INT, 8}},
+        {TokenType::TINT, {TypeKind::INT, 4}},
+        {TokenType::TSHORT, {TypeKind::INT, 2}},
+        {TokenType::TCHAR, {TypeKind::INT, 1}},
+        {TokenType::TFLOAT, {TypeKind::FLOAT, 4}},
+        {TokenType::TDOUBLE, {TypeKind::FLOAT, 8}},
+    });
+
+    std::unordered_set<Type> type_set({
+        {TypeKind::INT, 8},
+        {TypeKind::INT, 4},
+        {TypeKind::INT, 2},
+        {TypeKind::INT, 1},
+        {TypeKind::FLOAT, 4},
+        {TypeKind::FLOAT, 8},
+    });
+
+    if (type_map.contains(tokens.cur().type))
     {
-        case TokenType::TLONG:
-        {
-            tokens.inc();
-            return {TypeKind::INT, 8};
-        }
-        case TokenType::TINT:
-        {
-            tokens.inc();
-            return {TypeKind::INT, 4};
-        }
-        case TokenType::TSHORT:
-        {
-            tokens.inc();
-            return {TypeKind::INT, 2};
-        }
-        case TokenType::TCHAR:
-        {
-            tokens.inc();
-            return {TypeKind::INT, 1};
-        }
-        case TokenType::TFLOAT:
-        {
-            tokens.inc();
-            return {TypeKind::FLOAT, 4};
-        }
-        case TokenType::TDOUBLE:
-        {
-            tokens.inc();
-            return {TypeKind::FLOAT, 8};
-        }
-        case TokenType::UNSIGNED:
-        {
-            tokens.inc();
-            Type size = gen_expl_type(tokens);
-            if (size.t_kind != TypeKind::INT) throw compiler_error("Invalid type for unsigned %s", type_to_il_str[size].c_str());
-            return {TypeKind::UNSIGNED, size.size_of};
-        }
-        default:
-        {
-            tokens.inc();
-            return {TypeKind::NULLTP};
-        }
+        if (type_set.contains(type)) throw compiler_error("Invalid type for %s", type_to_il_str[type].c_str());
+        
+        tokens.inc();
+        
+        if (type.t_kind == TypeKind::UNSIGNED && type_map[tokens.prev().type].t_kind == TypeKind::INT) return gen_expl_type(tokens, {TypeKind::UNSIGNED, type_map[tokens.cur((long long) -1).type].size_of()}); 
+        else if (type.t_kind == TypeKind::UNSIGNED) throw compiler_error("Invalid type for unsigned %s", type_to_il_str[type].c_str());
+        else return gen_expl_type(tokens, type_map[tokens.prev().type]);
     }
+    else if (tokens.cur().type == TokenType::UNSIGNED)
+    {
+        tokens.inc();
+        if (type != Type{TypeKind::NULLTP, 0}) throw compiler_error("Type %s has already been declared", type_to_il_str[type].c_str());
+        else return gen_expl_type(tokens, {TypeKind::UNSIGNED, 0});
+    }
+    else if (tokens.cur().type == TokenType::MUL && type != Type{TypeKind::NULLTP, 0})
+    {
+        tokens.inc();
+        type.num_pointers++;
+        return gen_expl_type(tokens, type);
+    }
+    else return type;
 }
 
 // Does an explicit cast
@@ -102,16 +99,22 @@ Type expl_cast(const Type& t1, const Type& t2)
 {
     if (t1 == t2) return t1;
     
-    if (t1.t_kind == TypeKind::FLOAT || t2.t_kind == TypeKind::FLOAT) { return {TypeKind::FLOAT, (t1.size_of > t2.size_of) ? t1.size_of : t2.size_of};}
-    else { return {TypeKind::INT, (t1.size_of > t2.size_of) ? t1.size_of : t2.size_of};}
+    if (t1.t_kind == TypeKind::FLOAT || t2.t_kind == TypeKind::FLOAT) { return {TypeKind::FLOAT, (t1.size_of() > t2.size_of()) ? t1.size_of() : t2.size_of()};}
+    else { return {TypeKind::INT, (t1.size_of() > t2.size_of()) ? t1.size_of() : t2.size_of()};}
 }
 
 // Converts a stringfloat to a hexadecimal string
 std::string strfloat_to_hexfloat(const std::string& str, Type type)
 {
     double value = std::stod(str);
-    if (type.size_of == 4) *(size_t*)&value &= 0xFFFFFFFFE0000000;
-    std::stringstream sstr;
-    sstr << "0x" << std::hex << *(size_t*)&value;
-    return sstr.str();
+    if (type.size_of() == 4) *(size_t*)&value &= 0xFFFFFFFFE0000000;
+    std::stringstream ss;
+    ss << "0x" << std::hex << *(size_t*)&value;
+    return ss.str();
+}
+
+// Converts a type to a string
+std::string type_to_string(const Type& type)
+{
+    return type.num_pointers ? "ptr" : type_to_il_str[type];
 }
