@@ -211,9 +211,7 @@ std::string return_str(Type type)
 
 std::string codegen(Node* node)
 {
-    var_map.emplace_back();
     node->visit(&output);
-    var_map.pop_back();
 
     // Just cover the bases
     // Fix double branches
@@ -621,8 +619,15 @@ void VarNode::visit(std::string* write)
             location = (*i)[this->name.value].first;
             return;
         }
+    }
 
-        // See if it is in globals!!!
+    if (global_definitions.contains(this->name.value))
+    {
+        sprinta(write, "    %", next_temp++, " = load ", type_to_il_str[global_definitions[this->name.value].type], ", ", type_to_il_str[global_definitions[this->name.value].type], "* @", global_definitions[this->name.value].name, ", align ", global_definitions[this->name.value].type.size_of, "\n");
+        result = "%" + std::to_string(next_temp - 1);
+        result_type = global_definitions[this->name.value].type;
+        location = "@" + global_definitions[this->name.value].name;
+        return;
     }
 
     throw compiler_error("Variable %s not declared\n", this->name.value.c_str());
@@ -665,7 +670,7 @@ void FuncallNode::visit(std::string* write)
 void DeclNode::visit(std::string* write)
 {
     // If the function is in global or if it is in stack scope
-    if (var_map.size() == 1)
+    if (var_map.size() == 0)
     {
         if ((this->defined && global_definitions[this->name.value].defined) || !global_definitions[this->name.value].defined)
         {
@@ -683,7 +688,6 @@ void DeclNode::visit(std::string* write)
             }
             else sprinta(write, "0", after_decimal[type.t_kind]);
             sprinta(write, ", align ", type.size_of, "\n\n");
-            var_map.back()[this->name.value] = {std::string("@").append(this->name.value), this->type};
         } 
     }  
     else 
