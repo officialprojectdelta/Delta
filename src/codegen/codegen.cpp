@@ -282,11 +282,11 @@ void FunctionNode::visit(std::string* write)
     std::string init_variable_allocs;
     var_map.emplace_back();
     // Only do declarations if no definition exists
-    if (!function_definitions[this->name.value].defined || this->statements.forward.size())
+    if (!function_definitions[this->name.value].defined || this->defined)
     {
         sprinta(write, "define dso_local ", type_to_il_str[type], " @", this->name.value, "(");
         
-        if (this->statements.forward.size() == 0)
+        if (!this->defined)
         {
             for (auto arg : args)
             {
@@ -327,7 +327,7 @@ void FunctionNode::visit(std::string* write)
         }
     }
 
-    if (statements.forward.size() != 0) 
+    if (this->defined) 
     {   
         return_type = type;
         sprinta(write, "{\n", init_variable_allocs);
@@ -621,6 +621,8 @@ void VarNode::visit(std::string* write)
             location = (*i)[this->name.value].first;
             return;
         }
+
+        // See if it is in globals!!!
     }
 
     throw compiler_error("Variable %s not declared\n", this->name.value.c_str());
@@ -665,21 +667,24 @@ void DeclNode::visit(std::string* write)
     // If the function is in global or if it is in stack scope
     if (var_map.size() == 1)
     {
-        sprinta(write, "@", this->name.value, " = dso_local global ", type_to_il_str[this->type], " ");
-
-        if (assign) 
+        if ((this->defined && global_definitions[this->name.value].defined) || !global_definitions[this->name.value].defined)
         {
-            assign->visit(write);
-            // Only literal cast b/c no code can be executed
-            result_type = literal_cast(this->type, result_type, result);
-            if (result_type == Type{TypeKind::NULLTP, 1}) throw compiler_error("Global variable can only be declared as a literal");
-            literal_value = "";
-            location = ""; 
-            sprinta(write, result);
-        }
-        else sprinta(write, "0", after_decimal[type.t_kind]);
-        sprinta(write, ", align ", type.size_of, "\n\n");
-        var_map.back()[this->name.value] = {std::string("@").append(this->name.value), this->type};
+            sprinta(write, "@", this->name.value, " = dso_local global ", type_to_il_str[this->type], " ");
+
+            if (assign) 
+            {
+                assign->visit(write);
+                // Only literal cast b/c no code can be executed
+                result_type = literal_cast(this->type, result_type, result);
+                if (result_type == Type{TypeKind::NULLTP, 1}) throw compiler_error("Global variable can only be declared as a literal");
+                literal_value = "";
+                location = ""; 
+                sprinta(write, result);
+            }
+            else sprinta(write, "0", after_decimal[type.t_kind]);
+            sprinta(write, ", align ", type.size_of, "\n\n");
+            var_map.back()[this->name.value] = {std::string("@").append(this->name.value), this->type};
+        } 
     }  
     else 
     {

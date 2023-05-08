@@ -139,6 +139,9 @@ struct FunctionNode : Node
     // Function name
     Token name;
 
+    // If the function is defined or not
+    bool defined = false;
+
     // List of arguments
     std::vector<ArgNode> args;
 
@@ -245,6 +248,9 @@ struct DeclNode : Node
 
     // Variable name
     Token name;
+
+    // If the variable is defined
+    bool defined = false;
 
     // Assignment expression if there is one
     Node* assign = nullptr;

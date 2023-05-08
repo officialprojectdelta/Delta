@@ -116,6 +116,7 @@ FunctionNode* parse_function(Tokenizer& tokens)
     if (tokens.cur().type == TokenType::SEMI) return current;
 
     if (tokens.cur().type != TokenType::OBRACKET) throw compiler_error("Invalid function declaration");
+    current->defined = true;
     tokens.inc();
 
     // Loop through func (which is a list of statements), if } is found end the loop
@@ -125,7 +126,6 @@ FunctionNode* parse_function(Tokenizer& tokens)
 
         // Parse blkitem should point to next token 
         if (tokens.cur().type == TokenType::CBRACKET) return current;
-
         current->statements.forward.emplace_back(parse_blk_item(tokens));
     }
 
@@ -145,6 +145,7 @@ DeclNode* do_decl(Tokenizer& tokens)
     {
         tokens.inc();
         decl->assign = parse_exp(tokens, 0);
+        decl->defined = true;
     }
 
     return decl;

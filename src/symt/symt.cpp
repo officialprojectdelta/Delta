@@ -10,10 +10,9 @@ void generate_symtables(Node* node)
 
 void FunctionNode::visit_symt()
 {
-    bool defined = this->statements.forward.size() == 0 ? false : true;
     if (function_definitions.contains(this->name.value) && function_definitions[this->name.value].defined)
     {
-        if (defined) throw compiler_error("Redefinition of function %s\n", this->name.value.c_str());
+        if (this->defined) throw compiler_error("Redefinition of function %s\n", this->name.value.c_str());
         else return;
     }
     std::unordered_map<std::string, size_t> arg_to_il_name;
@@ -23,11 +22,15 @@ void FunctionNode::visit_symt()
         if (arg_to_il_name.contains((*i).tok.value)) throw compiler_error("Redefinition of argument %s\n", (*i).tok.value.c_str());    
         arg_to_il_name[(*i).tok.value] = j;
     } 
-    function_definitions[this->name.value] = {this->type, this->name.value, defined, this->args, std::move(arg_to_il_name), j};
+    function_definitions[this->name.value] = {this->type, this->name.value, this->defined, this->args, std::move(arg_to_il_name), j};
 }
 
 void DeclNode::visit_symt()
 {
-    if (global_definitions.contains(this->name.value)) throw compiler_error("Redifinition of global variable %s\n", this->name.value.c_str());
-    global_definitions[this->name.value] = {this->type, this->name.value, true};
+    if (global_definitions.contains(this->name.value) && global_definitions[this->name.value].defined) 
+    {
+        if (this->defined) throw compiler_error("Redefinition of global variable %s\n", this->name.value.c_str());
+        else return;
+    }
+    global_definitions[this->name.value] = {this->type, this->name.value, this->defined};
 }
