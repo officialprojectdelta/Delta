@@ -1,48 +1,16 @@
-double t = 1;
-
-int spread(int x);
-float test1();
-
-int test() 
-{
-    const int xint x = 3;
-    x = 4;int x
-    int* y = &x;
-    *y = 3;
-    int ret = spread(3) + t + test1();
-    return ret + t - 8;
-}
-
-int spread(int x)
-{
-    for (int i = 0; i < 4; i++)
+int* get_max(int *a, int *b) {
+    if (*a > *b) 
     {
-        x = x + i / 4;
+        return a;
+    } else {
+        return b;
     }
-
-    float y = 2.3;
-    int x1 = !y;
-    x1 = -y;
-    int z = x1++ + 3;
-    short three = z;
-
-    return x;
 }
 
-int* blah(int* t)
-{
-    int** test = &t;
-    int y = spread(*t);
-    t = &y;
-    return t;
-}
+int test() {
+    int a = 5;
+    int b = 10;
+    int *max_ptr = get_max(&a, &b);
 
-float test1()
-{
-    float x = 9.823;
-    x = x + 8;
-    x = x + 2.9;
-    int y = 23;
-    t = 9;
-    return x + y;
+    return *max_ptr;
 }

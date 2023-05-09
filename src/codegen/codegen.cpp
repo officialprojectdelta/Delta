@@ -44,7 +44,7 @@ std::unordered_map<TypeKind, std::string> after_decimal({
 void store(std::string* write, Type type, const std::string& dst, const std::string& src, bool ignore_const = false)
 {
     if (type.is_const && !ignore_const) throw compiler_error("Trying to assign a const value");
-    else *write += "store " + type_to_string(type) + src + ", ptr " + dst + " align " + std::to_string(type.size_of()) + "\n";
+    else *write += "store " + type_to_string(type) + " " + src + ", ptr " + dst + ", align " + std::to_string(type.size_of()) + "\n";
 }
 
 Type literal_cast(Type dst, Type src, const std::string& literal)
@@ -220,6 +220,7 @@ void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cas
 
 std::string return_str(Type type)
 {
+    if (type.num_pointers) return "    ret ptr null\n";
     return "    ret " + type_to_string(type) + " 0" + after_decimal[type.t_kind] + "\n";
 }
 
