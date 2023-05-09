@@ -43,7 +43,7 @@ std::unordered_map<TypeKind, std::string> after_decimal({
 
 Type literal_cast(Type dst, Type src, const std::string& literal)
 {
-    if (literal[0] != '%' && src != dst && src.t_kind != TypeKind::BOOL && dst.t_kind != TypeKind::BOOL)
+    if (literal_value.size() != 0 && literal[0] != '%' && src != dst && src.t_kind != TypeKind::BOOL && dst.t_kind != TypeKind::BOOL)
     {
         if (dst.t_kind == TypeKind::INT || (dst.t_kind == TypeKind::UNSIGNED && dst.t_kind == TypeKind::UNSIGNED))
         {
@@ -135,6 +135,14 @@ Type literal_cast(Type dst, Type src, const std::string& literal)
 void cast(std::string* write, Type dst, Type src, const std::string& temp_to_cast)
 {
     // Potential for result bugs maybe?
+    if (dst == src) 
+    {
+        result = temp_to_cast;
+        result_type = src;
+        location = "";
+        literal_value = "";
+        return; 
+    }
     result_type = literal_cast(dst, src, temp_to_cast);
     if (result_type != Type{TypeKind::NULLTP, 0}) 
     {
@@ -464,7 +472,32 @@ void BinaryOpNode::visit(std::string* write)
 
     if (arith_op_to_str.contains(op) || cmp_op_to_str.contains(op))
     {
-        Type convert_to = expl_cast(lhs_type, rhs_type);
+        Type convert_to = bin_op_cast(lhs_type, rhs_type);
+        if (convert_to.num_pointers != 0)
+        {
+            Type ptr_type = lhs_type.num_pointers ? lhs_type : rhs_type;
+            Type ptr_base_type = ptr_type;
+            ptr_base_type.num_pointers = 0;
+            Type int_type = lhs_type.num_pointers ? rhs_type : lhs_type;
+            std::string ptr_result = lhs_type.num_pointers ? lhs_result : rhs_result;
+            std::string int_result = lhs_type.num_pointers ? rhs_result : lhs_result;
+
+            if ((op != NodeKind::SUB && op != NodeKind::ADD) || (lhs_type.num_pointers == 0 && op == NodeKind::SUB)) throw compiler_error("Invalid operands for binary expression: '%s' and '%s'", type_to_string(lhs_type).c_str(), type_to_string(rhs_type).c_str());
+
+            cast(write, {TypeKind::UNSIGNED, 8}, int_type, int_result);
+            if (op == NodeKind::SUB) 
+            {
+                sprinta(write, "    %", next_temp++, " = sub ", type_to_string(result_type), " 0, ",  result, "\n");
+                result = "%" + std::to_string(next_temp - 1);
+            }
+            sprinta(write, "    %", next_temp++, " = getelementptr inbounds ", type_to_string(ptr_base_type), ", ptr ", ptr_result, ", i64 ", result, "\n");
+            
+            result = "%" + std::to_string(next_temp - 1);
+            result_type = ptr_type;
+            location = ""; 
+            literal_value = "";
+            return;
+        }
 
         if (lhs_type != convert_to)
         {
@@ -486,9 +519,11 @@ void BinaryOpNode::visit(std::string* write)
             if ((op == NodeKind::DIV || op == NodeKind::MOD) && convert_to.t_kind == TypeKind::INT) before_char = "s";
             if ((op == NodeKind::DIV || op == NodeKind::MOD) && convert_to.t_kind == TypeKind::UNSIGNED) before_char = "u";
             if (convert_to.t_kind == TypeKind::FLOAT) before_char = "f";
+            
             // Output operation
             sprinta(write, "    %", next_temp++, " = ", before_char, arith_op_to_str[op], " ", type_to_string(convert_to), " ", lhs_result, ", ", rhs_result, "\n");
             result = "%" + std::to_string(next_temp - 1);
+            result_type = convert_to;
         } 
         else
         {
@@ -571,7 +606,7 @@ void TernNode::visit(std::string* write)
     location = ""; 
     literal_value = "";
 
-    Type convert_to = this->forceboolout ? Type{TypeKind::BOOL, 1} : expl_cast(lhs_type, rhs_type);
+    Type convert_to = this->forceboolout ? Type{TypeKind::BOOL, 1} : bin_op_cast(lhs_type, rhs_type);
     next_temp = save_next_temp;
 
     if (lhs_type != convert_to)

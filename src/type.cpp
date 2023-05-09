@@ -94,12 +94,16 @@ Type gen_expl_type(Tokenizer& tokens, Type type)
     else return type;
 }
 
-// Does an explicit cast
-Type expl_cast(const Type& t1, const Type& t2)
+// Does a cast for a binary operation
+Type bin_op_cast(const Type& t1, const Type& t2)
 {
+    // If both types are pointers, or either type is a pointer and the other is a float
+    if ((t1.num_pointers && t2.num_pointers) || (t1.num_pointers && t2.t_kind == TypeKind::FLOAT) || (t2.num_pointers && t1.t_kind == TypeKind::FLOAT)) throw compiler_error("Invalid operands for binary expression: '%s' and '%s'", type_to_string(t1).c_str(), type_to_string(t2).c_str());
     if (t1 == t2) return t1;
     
     if (t1.t_kind == TypeKind::FLOAT || t2.t_kind == TypeKind::FLOAT) { return {TypeKind::FLOAT, (t1.size_of() > t2.size_of()) ? t1.size_of() : t2.size_of()};}
+    else if (t1.num_pointers) return t1;
+    else if (t2.num_pointers) return t2;
     else { return {TypeKind::INT, (t1.size_of() > t2.size_of()) ? t1.size_of() : t2.size_of()};}
 }
 

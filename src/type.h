@@ -68,7 +68,7 @@ namespace std {
 // Generates a type from a literal
 Type gen_const_type(Tokenizer& tokens);
 // Generates the result type from 2 types
-Type expl_cast(const Type& lhs, const Type& rhs);
+Type bin_op_cast(const Type& lhs, const Type& rhs);
 // Generates a type from a explicit type token like float
 Type gen_expl_type(Tokenizer& tokens, Type type);
 // Converts a string float to a hexadecimal floats

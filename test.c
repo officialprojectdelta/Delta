@@ -1,8 +1,7 @@
 int test()
 {
-    int* a;
-    int b = 3;
-    a = &b;
-    *a = 4;
-    return b;
+    int a = 4;
+    int* c;
+    int* b = c - 1;
+    return *b;
 }
