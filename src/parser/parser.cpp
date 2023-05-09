@@ -531,8 +531,26 @@ Node* parse_base_atom(Tokenizer& tokens)
     if (tokens.cur().type == TokenType::OPAREN) 
     {
         tokens.inc();
+        size_t save_pos = tokens.getPos();
+        Node* exp = nullptr;
 
-        Node* exp = parse_exp(tokens, 0);
+        // Annoying hack because gen_expl_type can throw errors so they are caught here
+        // May come up with a better error handling method for gen_expl_type
+        try
+        {
+            Type type = gen_expl_type(tokens, {TypeKind::NULLTP, 0});
+            if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Unmatched parenthesis \'(\'");
+            tokens.inc();
+            CastNode* cast = new CastNode;
+            cast->type = type;
+            cast->forward = parse_exp(tokens, 0);
+            return cast;
+        }
+        catch (compiler_error& e)
+        {
+            tokens.setPos(save_pos);
+            exp = parse_exp(tokens, 0);
+        }
 
         if (tokens.cur().type != TokenType::CPAREN) throw compiler_error("Unmatched parenthesis \'(\'");
         else 

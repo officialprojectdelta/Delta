@@ -687,6 +687,49 @@ void VarNode::visit(std::string* write)
     throw compiler_error("Variable %s not declared\n", this->name.value.c_str());
 }
 
+void CastNode::visit(std::string* write)
+{
+    // Convert types
+    this->forward->visit(write);
+
+    // Handle pointer casting 
+    // Both sides are pointers, just return
+    if (this->type.num_pointers && result_type.num_pointers)
+    {
+        result_type = this->type;
+        location = ""; 
+        literal_value = "";
+        return;
+    }
+    // If an integer is being cast to a pointer or vice versa, do inttoptr or ptrtoint
+    else if (this->type.num_pointers && (result_type.t_kind == TypeKind::INT || result_type.t_kind == TypeKind::BOOL || result_type.t_kind == TypeKind::UNSIGNED))
+    {
+        sprinta(write, "    %", next_temp++, " = inttoptr ", type_to_string(result_type), " ", result, " to ", type_to_string(this->type), "\n");
+        result = "%" + std::to_string(next_temp - 1);
+        result_type = this->type;
+        location = ""; 
+        literal_value = "";
+        return;
+    }
+    else if (result_type.num_pointers && (this->type.t_kind == TypeKind::INT || this->type.t_kind == TypeKind::BOOL || this->type.t_kind == TypeKind::UNSIGNED))
+    {
+        sprinta(write, "    %", next_temp++, " = ptrtoint ", type_to_string(result_type), " ", result, " to ", type_to_string(this->type), "\n");
+        result = "%" + std::to_string(next_temp - 1);
+        result_type = this->type;
+        location = ""; 
+        literal_value = "";
+        return;
+    }
+    // Floats cannot be casted to pointers
+    else if ((this->type.num_pointers || result_type.num_pointers) && (this->type.t_kind == TypeKind::FLOAT || result_type.t_kind == TypeKind::FLOAT)) throw compiler_error("Cannot cast type %s to type %s\n", type_to_string(result_type).c_str(), type_to_string(this->type).c_str());
+
+    // If it is a normal type do a normal cast
+    cast(write, this->type, result_type, result);
+    result_type = this->type;
+    location = ""; 
+    literal_value = "";
+}
+
 void FuncallNode::visit(std::string* write)
 {
     // Check if function exists

@@ -164,6 +164,17 @@ struct NoExpr : Node
     ~NoExpr() override {}
 };
 
+struct CastNode : Node
+{
+    Node* forward = nullptr;
+
+    Type type;
+
+    virtual void visit(std::string* write) override;
+
+    ~CastNode() override { if (forward) delete forward; }   
+};
+
 struct UnaryOpNode : Node
 {
     Node* forward = nullptr;
