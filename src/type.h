@@ -24,6 +24,7 @@ struct Type
     TypeKind t_kind;
     size_t size;
     size_t num_pointers = 0;
+    bool is_const = false;
 
     bool operator==(const Type& type) const { return this->t_kind == type.t_kind && this->size == type.size && this->num_pointers == type.num_pointers; }
     bool operator!=(const Type& type) const { return !(this->t_kind == type.t_kind && this->size == type.size && this->num_pointers == type.num_pointers); }

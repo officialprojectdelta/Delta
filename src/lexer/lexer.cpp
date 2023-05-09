@@ -45,6 +45,7 @@ std::unordered_map<std::string, Token> map({
     {">=", Token(TokenType::GREATEREQ)},
     {"?", Token(TokenType::TERN)},
     {":", Token(TokenType::COLON)}, 
+    {"const", Token(TokenType::CONST)},
     {"unsigned", Token(TokenType::UNSIGNED)},
     {"long", Token(TokenType::TLONG)},
     {"int", Token(TokenType::TINT)},

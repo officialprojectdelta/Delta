@@ -41,6 +41,12 @@ std::unordered_map<TypeKind, std::string> after_decimal({
     {TypeKind::INT, ""},
 });
 
+void store(std::string* write, Type type, const std::string& dst, const std::string& src, bool ignore_const = false)
+{
+    if (type.is_const && !ignore_const) throw compiler_error("Trying to assign a const value");
+    else *write += "store " + type_to_string(type) + src + ", ptr " + dst + " align " + std::to_string(type.size_of()) + "\n";
+}
+
 Type literal_cast(Type dst, Type src, const std::string& literal)
 {
     if (literal_value.size() != 0 && literal[0] != '%' && src != dst && src.t_kind != TypeKind::BOOL && dst.t_kind != TypeKind::BOOL)
@@ -321,7 +327,7 @@ void FunctionNode::visit(std::string* write)
             {
                 var_map.back()[arg.tok.value] = {"%" + std::to_string(next_temp), arg.type};
                 sprinta(&init_variable_allocs, "    %", next_temp, " = alloca ", type_to_string(arg.type), ", align ", arg.type.size_of(), "\n");
-                sprinta(&init_variable_allocs, "    store ", type_to_string(arg.type), " %", arg_ctr++, ", ptr %", next_temp++, ", align ", arg.type.size_of(), "\n");
+                store(&init_variable_allocs, arg.type, "%" + std::to_string(next_temp++), "%" + std::to_string(arg_ctr++), true);
             }
 
             if (args.size() != 0)
@@ -400,6 +406,7 @@ void UnaryOpNode::visit(std::string* write)
             if (location.size() == 0) throw compiler_error("Error: Expected lvalue for to take address of");
             result = location;
             result_type.num_pointers++;
+            result_type.is_const = false;
             break;
         }
         case NodeKind::DEREF:
@@ -407,6 +414,7 @@ void UnaryOpNode::visit(std::string* write)
             forward->visit(write);
             if (result_type.num_pointers == 0) throw compiler_error("Error: Expected pointer type to derefernce");
             result_type.num_pointers--;
+            result_type.is_const = false;
             sprinta(write, "    %", next_temp, " = load ", type_to_string(result_type), ", ptr ", result, "\n");
             location = result;
             result = "%" + std::to_string(next_temp++);
@@ -424,7 +432,7 @@ void UnaryOpNode::visit(std::string* write)
             if (result_type.t_kind == TypeKind::FLOAT) op.insert(op.begin(), 'f');
 
             sprinta(write, "    %", next_temp++, " = ", op, " ", type_to_string(result_type), " ", result, ", 1", after_decimal[result_type.t_kind], "\n");
-            sprinta(write, "    store ", type_to_string(result_type), " %", next_temp - 1, ", ptr ", location, ", align ", result_type.size_of(), "\n");
+            store(write, result_type, location, "%" + std::to_string(next_temp - 1));
             if (this->op == NodeKind::PREFIXINC || this->op == NodeKind::PREFIXDEC) result = "%" + std::to_string(next_temp - 1);
             if (this->op == NodeKind::POSTFIXINC || this->op == NodeKind::POSTFIXDEC) result = "%" + std::to_string(next_temp - 2);
             break;
@@ -555,7 +563,7 @@ void BinaryOpNode::visit(std::string* write)
         if (lhs_location.size() == 0) throw compiler_error("%s is not a variable", lhs_result.c_str());
         literal_value = rhs_lit_val;
         if (lhs_type != rhs_type) cast(write, lhs_type, rhs_type, rhs_result);
-        sprinta(write, "    store ", type_to_string(result_type), " ", result, ", ptr ", lhs_location, ", align ", result_type.size_of(), "\n");
+        store(write, result_type, lhs_location, result);
     }
 
     location = ""; 
@@ -692,6 +700,8 @@ void CastNode::visit(std::string* write)
     // Convert types
     this->forward->visit(write);
 
+    // Make sure const properly gets casted or casted away
+    result_type.is_const = this->type.is_const;
     // Handle pointer casting 
     // Both sides are pointers, just return
     if (this->type.num_pointers && result_type.num_pointers)
@@ -796,12 +806,12 @@ void DeclNode::visit(std::string* write)
         {
             assign->visit(write);
             if (result_type != this->type) cast(write, this->type, result_type, result);
-            sprinta(write, "    store ", type_to_string(this->type), " ", result, ", ptr ", var_map.back()[this->name.value].first, ", align ", this->type.size_of(), "\n");
+            store(write, this->type, var_map.back()[this->name.value].first, result);
         }
         else
         {
             std::string null_value = this->type.num_pointers ? "null" : "0" + after_decimal[this->type.t_kind];
-            sprinta(write, "    store ", type_to_string(this->type), " ", null_value, ", ptr ", var_map.back()[this->name.value].first, ", align ", this->type.size_of(), "\n");
+            store(write, this->type, var_map.back()[this->name.value].first, null_value);
         }
     } 
 }

@@ -34,6 +34,7 @@ enum class TokenType
     GREATEREQ,
     TERN, 
     COLON,
+    CONST,
     UNSIGNED,
     TLONG, 
     TINT,

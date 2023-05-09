@@ -75,9 +75,19 @@ Type gen_expl_type(Tokenizer& tokens, Type type)
         
         tokens.inc();
         
-        if (type.t_kind == TypeKind::UNSIGNED && type_map[tokens.prev().type].t_kind == TypeKind::INT) return gen_expl_type(tokens, {TypeKind::UNSIGNED, type_map[tokens.cur((long long) -1).type].size_of()}); 
+        if (type.t_kind == TypeKind::UNSIGNED && type_map[tokens.prev().type].t_kind == TypeKind::INT) 
+        {
+            type.t_kind = TypeKind::UNSIGNED;
+            type.size = type_map[tokens.prev().type].size;
+            return gen_expl_type(tokens, type); 
+        }
         else if (type.t_kind == TypeKind::UNSIGNED) throw compiler_error("Invalid type for unsigned %s", type_to_il_str[type].c_str());
-        else return gen_expl_type(tokens, type_map[tokens.prev().type]);
+        else
+        {
+            type.t_kind = type_map[tokens.prev().type].t_kind;
+            type.size = type_map[tokens.prev().type].size;
+            return gen_expl_type(tokens, type);
+        } 
     }
     else if (tokens.cur().type == TokenType::UNSIGNED)
     {
@@ -91,6 +101,14 @@ Type gen_expl_type(Tokenizer& tokens, Type type)
         type.num_pointers++;
         return gen_expl_type(tokens, type);
     }
+    else if (tokens.cur().type == TokenType::CONST)
+    {
+        tokens.inc();
+        if (type.size_of() || type.is_const) throw compiler_error("Type %s has already been declared", type_to_il_str[type].c_str());
+        type.is_const = true;
+        return gen_expl_type(tokens, type);
+    }
+
     else return type;
 }
 

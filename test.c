@@ -5,6 +5,10 @@ float test1();
 
 int test() 
 {
+    const int xint x = 3;
+    x = 4;int x
+    int* y = &x;
+    *y = 3;
     int ret = spread(3) + t + test1();
     return ret + t - 8;
 }

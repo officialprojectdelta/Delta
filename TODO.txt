@@ -14,8 +14,13 @@ MAIN THINGS (coming soon)
 -Make more tests
 
 Non-crucial
+
 Features that might be nice in the future, but not currently implemented
-Not high up on the list of features
-NSW and NUW
-C++ style function declaration (can declare a function with same name but different types in arguments)
-Add boolean values to literal_cast DONE
+-Not high up on the list of features
+-NSW and NUW
+-C++ style function declaration (can declare a function with same name but different types in arguments)
+-Add boolean values to literal_cast DONE
+
+Potential Features
+Features may or may not be implemented, depending on if they are important enough
+-Proper double const pointers (where the pointer to type can be const and the pointer itself can be const)
