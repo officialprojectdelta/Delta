@@ -1,14 +1,21 @@
 MAIN THINGS (coming soon)
 -More types DONE
--Pointers
+-Pointers DONE
+-Casting DONE
 -Const
+-Arrays 
+-String Literals
 -Assembly
 -Structs
+-Cleanup codebase 
+    -Will include refactoring of the type/casting system, mainly for the codegen file
+    -Will also include refactoring of the codegen file itself
+    -Will also include a better error system throughout the codebase
+-Make more tests
 
 Non-crucial
 Features that might be nice in the future, but not currently implemented
 Not high up on the list of features
 NSW and NUW
-Nice errors
 C++ style function declaration (can declare a function with same name but different types in arguments)
-Add boolean values to literal_cast
+Add boolean values to literal_cast DONE
