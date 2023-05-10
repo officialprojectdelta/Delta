@@ -67,6 +67,22 @@ std::unordered_map<std::string, Token> map({
     {"[alphan]", Token(TokenType::IDENT)}
 });
 
+// The letters in every escape sequence (such as n for \n)
+std::unordered_map<char, char> escape({
+    {'n', '\n'},
+    {'t', '\t'},
+    {'r', '\r'},
+    {'b', '\b'},
+    {'a', '\a'},
+    {'f', '\f'},
+    {'v', '\v'},
+    {'\\', '\\'},
+    {'\'', '\''},
+    {'\"', '\"'},
+    {'?', '\?'},
+    {'0', '\0'}
+});
+
 // The lexer function, which takes in a string (the data to be scanned)
 Tokenizer scan(std::string data)
 {
@@ -126,6 +142,23 @@ Tokenizer scan(std::string data)
             Token create = numstr.find('.') != std::string::npos ? map["[float]"] : map["[integer]"];
             create.value = numstr;
             tokens.push_back(create);
+        }
+        else if (data[i] == '\'')
+        {
+            // Add to the index
+            i++;
+            
+            // Create the token for the character literal
+            Token create = map["[integer]"];
+
+            // Get the ascii value of the character
+            // Handle escape sequences
+            if (data[i] == '\\' && !escape.contains(data[i + 1])) throw compiler_error("Invalid escape sequence %c", data[i + 1]);
+            create.value = data[i] == '\\' ? std::to_string(escape[data[++i]]) : std::to_string(data[i]);
+            tokens.push_back(create);
+            i++;
+            if (data[i] != '\'') throw compiler_error("Expected ' at end of character literal");
+            i++;
         }
         else
         {
