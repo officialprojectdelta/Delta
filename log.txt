@@ -31,7 +31,7 @@ Test does complete: test/tests/test/multiple_global.c
 Test does complete: test/tests/test/continue.c
 Test does complete: test/tests/test/precedence_2.c
 Test does complete: test/tests/test/ge_false.c
-Test doesn't complete: test/tests/test/test_case_13.c
+Test does complete: test/tests/test/test_case_13.c
 Test does complete: test/tests/test/test_case_05.c
 Test does complete: test/tests/test/forward_decl_multi_arg.c
 Test does complete: test/tests/test/nested_ternary.c

@@ -44,7 +44,7 @@ std::unordered_map<TypeKind, std::string> after_decimal({
 void store(std::string* write, Type type, const std::string& dst, const std::string& src, bool ignore_const = false)
 {
     if (type.is_const && !ignore_const) throw compiler_error("Trying to assign a const value");
-    else *write += "store " + type_to_string(type) + " " + src + ", ptr " + dst + ", align " + std::to_string(type.size_of()) + "\n";
+    else *write += "    store " + type_to_string(type) + " " + src + ", ptr " + dst + ", align " + std::to_string(type.size_of()) + "\n";
 }
 
 Type literal_cast(Type dst, Type src, const std::string& literal)
@@ -615,7 +615,7 @@ void TernNode::visit(std::string* write)
     location = ""; 
     literal_value = "";
 
-    Type convert_to = this->forceboolout ? Type{TypeKind::BOOL, 1} : bin_op_cast(lhs_type, rhs_type);
+    Type convert_to = lhs_type == rhs_type ? lhs_type : (this->forceboolout ? Type{TypeKind::BOOL, 1} : bin_op_cast(lhs_type, rhs_type));
     next_temp = save_next_temp;
 
     if (lhs_type != convert_to)
