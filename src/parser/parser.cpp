@@ -38,6 +38,7 @@ Node* parse_statement(Tokenizer& tokens);
 Node* parse_exp(Tokenizer& tokens, size_t min_prec);
 Node* parse_atom(Tokenizer& tokens);
 Node* parse_base_atom(Tokenizer& tokens);
+std::vector<Node*> parse_array(Tokenizer& tokens);
 DeclNode* do_decl(Tokenizer& tokens);
 bool check_type(Tokenizer& tokens);
 
@@ -140,15 +141,70 @@ DeclNode* do_decl(Tokenizer& tokens)
     decl->name = tokens.cur();
     tokens.inc();
 
-    // Check if it is just a declaration or an assignment
-    if (tokens.cur().type == TokenType::ASSIGN)
+    // Check for arrays
+    if (tokens.cur().type == TokenType::OSQUARE)
     {
         tokens.inc();
-        decl->assign = parse_exp(tokens, 0);
-        decl->defined = true;
+        if (tokens.cur().type == TokenType::INTV) 
+        {
+            decl->array_size = std::stoull(tokens.cur().value);
+            decl->defined = true;
+            tokens.inc();
+
+            if (tokens.cur().type != TokenType::CSQUARE) throw compiler_error("Expected closing square bracket");
+            tokens.inc();
+            
+            // Check if it is just a declaration or an assignment
+            if (tokens.cur().type == TokenType::ASSIGN)
+            {
+                tokens.inc();
+                decl->array = parse_array(tokens, 0);
+                decl->defined = true;
+            }
+
+            return decl;
+        }
+        // Put it to an impossibly high value that there is a constant for, this also means that the array will have to be declared by an array initalizer
+        else 
+        {
+            if (tokens.cur().type != TokenType::CSQUARE) throw compiler_error("Expected closing square bracket");
+            decl->array_size = std::string::npos; 
+            tokens.inc();
+        }
+    }
+    else
+    {
+        // Check if it is just a declaration or an assignment
+        if (tokens.cur().type == TokenType::ASSIGN)
+        {
+            tokens.inc();
+            decl->assign = parse_exp(tokens, 0);
+            decl->defined = true;
+        }
     }
 
     return decl;
+}
+
+std::vector<Node*> parse_array(Tokenizer& tokens)
+{
+    std::vector<Node*> array;
+    if (tokens.cur().type != TokenType::OBRACKET) throw compiler_error("Array initalizer must be a valid array constant");
+
+    while (true)
+    {
+        array.emplace_back(parse_exp(tokens, 0));
+        if (tokens.cur().type == TokenType::COMMA) tokens.inc();
+        // If, so the last element in an array can have a comma
+        if (tokens.cur().type == TokenType::CBRACKET) 
+        {
+            tokens.inc();
+            break;
+        }
+        else throw compiler_error("Expected seperator or closing square bracket");
+    }
+
+    return array;
 }
 
 bool check_type(Tokenizer& tokens)

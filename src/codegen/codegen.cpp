@@ -12,6 +12,9 @@
 // The output string
 std::string output;
 
+// A string for data section so array constants can be stored
+std::string data_section;
+
 // The next unused temp value, increment after use
 size_t next_temp;
 
@@ -775,8 +778,60 @@ void FuncallNode::visit(std::string* write)
     literal_value = "";
 }
 
+// Handle an array 
+// If it is a global array, it is a global variable
+// This means it has to be all literals
+// If it is a local array, it is a stack variable
+// Allocate the pointer, then use getptrelement to get the pointer at each index
+// Set that pointer to the value
+void handle_array(std::string* write, DeclNode* this)
+{
+    if (this->array_assign.size() != this->array && array_assign.size() != 0) throw compiler_error("Array %s has wrong number of elements\n", this->name.value.c_str());
+    if (this->array == 0) throw compiler_error("Array %s has no size\n", this->name.value.c_str());
+    if (this->defined == false && this->array_assign.size() == 0) throw compiler_error("Array %s has no size\n", this->name.value.c_str());
+
+    if (this->var_map.size() == 0)
+    {
+        if ((this->defined && global_definitions[this->name.value].defined) || !global_definitions[this->name.value].defined)
+        {
+            sprinta(write, "@", this->name.value, " = dso_local global [", this->defined ? array_assign.size() : array, " x ", type_to_string(this->type), "]");
+            if (this->array_assign.size() != 0)
+            {
+                sprinta(write, " [");
+                for (auto i = this->array_assign.begin(); i != this->array_assign.end(); i++)
+                {
+                    literal_value = "";
+                    (*i)->visit(write);
+                    if (literal_value == "") throw compiler_error("Global array %s has non-literal value\n", this->name.value.c_str());
+                    if (result_type != this->type) cast(write, this->type, result_type, result);
+                    sprinta(write, type_to_string(result_type), " ", result, ", ");
+                }
+                write->pop_back();
+                write->pop_back();
+                sprinta(write, "]");
+            }
+            else
+            {
+                sprinta(write, " zeroinitializer");
+            }
+
+            sprinta(write, ", align 16\n");
+        }
+    }
+    else
+    {
+        
+    }
+}
+
 void DeclNode::visit(std::string* write)
 {
+    if (this->array)
+    {
+        handle_array(write, this);
+        return;
+    }
+
     // If the function is in global or if it is in stack scope
     if (var_map.size() == 0)
     {
@@ -806,8 +861,11 @@ void DeclNode::visit(std::string* write)
         if (assign) 
         {
             assign->visit(write);
-            if (result_type != this->type) cast(write, this->type, result_type, result);
-            store(write, this->type, var_map.back()[this->name.value].first, result);
+            if (result_type.t_kind != TypeKind::NULLTP)
+            {
+                if (result_type != this->type && result_type) cast(write, this->type, result_type, result);
+                store(write, this->type, var_map.back()[this->name.value].first, result);
+            }
         }
         else
         {

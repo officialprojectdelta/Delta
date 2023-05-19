@@ -11,6 +11,8 @@ enum class TokenType
 {
     OBRACKET,
     CBRACKET,
+    OSQUARE,
+    CSQUARE,
     OPAREN,
     CPAREN,
     SEMI,

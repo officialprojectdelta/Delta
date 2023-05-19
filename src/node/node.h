@@ -265,8 +265,14 @@ struct DeclNode : Node
     // If the variable is defined
     bool defined = false;
 
+    // The size of the array, if it is one
+    size_t array = 0;
+
     // Assignment expression if there is one
     Node* assign = nullptr;
+
+    // Array assignment expressions if there is an array assignment
+    std::vector<Node*> array_assign;
 
     virtual void visit(std::string* write) override;
     void visit_symt() override;

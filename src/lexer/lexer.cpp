@@ -21,6 +21,8 @@
 std::unordered_map<std::string, Token> map({
     {"{", Token(TokenType::OBRACKET)}, 
     {"}", Token(TokenType::CBRACKET)}, 
+    {"[", Token(TokenType::OSQUARE)}, 
+    {"]", Token(TokenType::CSQUARE)},
     {"(", Token(TokenType::OPAREN)}, 
     {")", Token(TokenType::CPAREN)}, 
     {";", Token(TokenType::SEMI)}, 
